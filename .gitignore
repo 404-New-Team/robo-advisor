@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+
+# 데이터 / 모델 (대용량은 절대 커밋 금지)
+data/raw/
+data/processed/
+*.parquet
+*.csv
+ai/rl_engine/checkpoints/
+*.pkl
+*.zip
+mlruns/
+
+# 벡터 DB
+chroma_db/
+*.sqlite3
+
+# IDE
+.vscode/
+.idea/
+.DS_Store
+
+# 노트북
+.ipynb_checkpoints/
+
+# 로그
+logs/
+*.log
