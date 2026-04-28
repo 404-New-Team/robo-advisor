@@ -1,0 +1,24 @@
+services:
+  backend:
+    build: ./backend
+    ports: ["8000:8000"]
+    env_file: .env
+    volumes:
+      - ./ai:/app/ai          # AI 모듈 핫 리로드
+      - ./data/processed:/app/data:ro
+    depends_on: [chromadb]
+
+  frontend:
+    build: ./frontend
+    ports: ["8501:8501"]
+    environment:
+      - API_BASE_URL=http://backend:8000
+    depends_on: [backend]
+
+  chromadb:
+    image: chromadb/chroma:latest
+    ports: ["8001:8000"]
+    volumes: [chroma_data:/chroma/chroma]
+
+volumes:
+  chroma_data:
