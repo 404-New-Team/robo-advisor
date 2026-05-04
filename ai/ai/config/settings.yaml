@@ -1,0 +1,29 @@
+environment:
+  tickers: ["AAPL", "MSFT", "GOOGL", "AMZN", "META"]
+  window_size: 20
+  initial_balance: 1000000
+  transaction_cost: 0.001
+
+risk:
+  tag_names:
+    - regulatory_risk
+    - earnings_shock
+    - geopolitical_risk
+    - market_stress
+    - liquidity_risk
+  decay_rate: 0.95
+
+reward:
+  risk_penalty_lambda: 0.5
+  drawdown_penalty_mu: 1.0
+
+training:
+  total_timesteps: 500000
+  n_envs: 4
+  batch_size: 256
+  learning_rate: 0.0003
+
+research:
+  model: "claude-opus-4-7"
+  max_tokens: 1024
+  news_lookback_days: 3
