@@ -6,8 +6,6 @@ venv/
 .env
 
 # 데이터 / 모델 (대용량은 절대 커밋 금지)
-data/raw/
-data/processed/
 *.parquet
 *.csv
 ai/rl_engine/checkpoints/
