@@ -19,42 +19,46 @@ RSS 뉴스
 
 ```
 ai/
-├── data/                      # 데이터 수집 & 전처리
-│   ├── market_data.py         # yfinance 다운로드 + parquet 캐싱
-│   └── preprocessors.py       # 로그수익률, 롤링 Z-score, compute_features
+├── src/                       # 메인 소스 코드
+│   ├── data/                  # 데이터 수집 & 전처리
+│   │   ├── market_data.py     # yfinance 다운로드 + parquet 캐싱
+│   │   └── preprocessors.py   # 로그수익률, 롤링 Z-score, compute_features
+│   │
+│   ├── envs/                  # RL 환경 (핵심)
+│   │   ├── portfolio_env.py   # Gymnasium 환경 본체
+│   │   └── risk_state.py      # 리스크 태그 상태 관리
+│   │
+│   ├── agents/                # RL 에이전트
+│   │   └── ppo_agent.py       # stable-baselines3 PPO 래퍼
+│   │
+│   ├── research/              # 리서치 에이전트
+│   │   ├── agentic_rag.py     # LangGraph 기반 에이전틱 RAG 워크플로우
+│   │   ├── documents.py       # 문서 인덱싱 & 청킹
+│   │   ├── news_fetcher.py    # RSS 피드 기반 뉴스 수집
+│   │   ├── news_store.py      # ChromaDB 임베딩 저장 & 유사 사례 검색
+│   │   ├── risk_detector.py   # Claude API → 리스크 태그 탐지
+│   │   └── risk_tags.py       # tool_use 스키마 정의
+│   │
+│   ├── safeguard/             # 규제 제약 검증
+│   │   └── monitor.py         # 포트폴리오 비중 한도 체크
+│   │
+│   ├── xai/                   # 의사결정 설명
+│   │   └── shap_explainer.py  # SHAP 기반 피처 중요도
+│   │
+│   ├── pipeline/              # 통합 파이프라인
+│   │   └── integrated_pipeline.py # 위 모듈 전체 연결
+│   │
+│   └── config/
+│       └── settings.yaml
 │
-├── envs/                      # RL 환경 (핵심)
-│   ├── portfolio_env.py       # Gymnasium 환경 본체
-│   └── risk_state.py          # 리스크 태그 상태 관리
+├── tests/                     # 테스트 모음
+│   ├── test_env.py            # RL 환경 동작 확인
+│   ├── test_research.py       # 리서치 에이전트 파이프라인 확인
+│   ├── test_agentic_rag.py    # 에이전틱 RAG 워크플로우 테스트
+│   ├── test_news_documents.py # 뉴스 문서 인덱싱 테스트
+│   └── conftest.py            # pytest 공유 설정
 │
-├── agents/                    # RL 에이전트
-│   └── ppo_agent.py           # stable-baselines3 PPO 래퍼
-│
-├── research/                  # 리서치 에이전트
-│   ├── news_fetcher.py        # RSS 피드 기반 뉴스 수집
-│   ├── news_store.py          # ChromaDB 임베딩 저장 & 유사 사례 검색
-│   ├── risk_detector.py       # Claude API → 리스크 태그 탐지
-│   └── risk_tags.py           # tool_use 스키마 정의
-│
-├── safeguard/                 # 규제 제약 검증
-│   └── monitor.py             # 포트폴리오 비중 한도 체크
-│
-├── xai/                       # 의사결정 설명
-│   └── shap_explainer.py      # SHAP 기반 피처 중요도
-│
-├── pipeline/
-│   └── integrated_pipeline.py # 위 모듈 전체 연결
-│
-└── config/
-    └── settings.yaml
-```
-
-루트 스크립트:
-
-```
-train.py          # PPO 에이전트 학습 (RL 환경만 사용, API 키 불필요)
-test_env.py       # RL 환경 동작 확인 (무작위 에이전트)
-test_research.py  # 리서치 에이전트 파이프라인 확인 (API 키 필요)
+└── train.py                   # PPO 에이전트 학습 스크립트 (RL 환경만 사용, API 키 불필요)
 ```
 
 ## 환경 세팅
@@ -113,33 +117,40 @@ RL 학습만 돌리는 경우에는 불필요합니다.
 
 ### 4. 동작 확인
 
-**RL 환경 확인** (API 키 불필요):
+**RL 환경 테스트** (API 키 불필요):
 ```bash
-python test_env.py
+pytest tests/test_env.py -v
 ```
 
 ```
-관측 공간 shape: (35,)
-step 1 | reward: 0.0148 | value: 1.0149 | drawdown: 0.0000
+PASSED tests/test_env.py::test_portfolio_env_creation
+PASSED tests/test_env.py::test_step_execution
 ...
 ```
 
-**리서치 에이전트 확인** (API 키 필요):
+**리서치 에이전트 테스트** (API 키 필요):
 ```bash
-python test_research.py
+pytest tests/test_research.py -v
 ```
 
 ```
-=== 1. 뉴스 수집 ===
-  [yahoo_finance] 10건 수집
-  ...
-=== 3. 리스크 탐지 ===
-  geopolitical_risk         level=0.72  confidence=0.85
-    근거: 무역 분쟁 관련 뉴스 감지
+PASSED tests/test_research.py::test_risk_detection
+PASSED tests/test_research.py::test_news_fetching
 ...
 ```
 
-**PPO 학습**:
+**에이전틱 RAG 테스트** (API 키 필요):
+```bash
+pytest tests/test_agentic_rag.py -v
+```
+
+```
+PASSED tests/test_agentic_rag.py::test_agentic_rag_workflow
+PASSED tests/test_agentic_rag.py::test_document_indexing
+...
+```
+
+**PPO 모델 학습**:
 ```bash
 python train.py
 ```
