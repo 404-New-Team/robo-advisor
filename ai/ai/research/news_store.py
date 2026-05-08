@@ -41,9 +41,12 @@ class NewsStore:
             documents=[a["text"] for a in new],
             metadatas=[
                 {
+                    "id":        a["id"],
                     "title":     a["title"],
                     "source":    a["source"],
                     "published": a["published"],
+                    "url":       a.get("url", ""),
+                    "summary":   a.get("summary", a["text"][:300]),
                 }
                 for a in new
             ],
@@ -58,14 +61,16 @@ class NewsStore:
         results = self.collection.query(
             query_texts=[query],
             n_results=min(n, total),
+            include=["documents", "metadatas", "distances"],
         )
-        return [
-            {"text": doc, "metadata": meta}
-            for doc, meta in zip(
-                results["documents"][0],
-                results["metadatas"][0],
-            )
-        ]
+        documents = results.get("documents", [[]])[0]
+        metadatas = results.get("metadatas", [[]])[0]
+        distances = results.get("distances", [[]])[0]
+        items = []
+        for doc, meta, distance in zip(documents, metadatas, distances):
+            score = 1.0 / (1.0 + float(distance)) if distance is not None else 0.0
+            items.append({"text": doc, "metadata": meta, "score": score})
+        return items
 
     def search_by_risk(self, n_per_type: int = 2) -> list[str]:
         """

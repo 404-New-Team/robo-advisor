@@ -23,8 +23,10 @@ def fetch_feed(url: str, max_articles: int = 20) -> list[dict]:
             "id":        entry.get("id") or entry.get("link", ""),
             "title":     title,
             "text":      f"{title}\n{body}".strip(),
+            "summary":   body[:300],
             "published": entry.get("published", ""),
             "source":    feed.feed.get("title", url),
+            "url":       entry.get("link", ""),
         })
     return articles
 
