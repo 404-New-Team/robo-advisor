@@ -1,5 +1,5 @@
-from ai.research.agentic_rag import AgenticRAGConfig, AgenticRAGResearchAgent
-from ai.research.news_store import NewsStore
+from src.research.agentic_rag import AgenticRAGConfig, AgenticRAGResearchAgent
+from src.research.news_store import NewsStore
 
 
 class DeterministicEmbeddingFunction:

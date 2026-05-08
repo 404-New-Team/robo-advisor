@@ -154,7 +154,7 @@ B&H   포트폴리오 가치: 1.4197  (+41.97%)
 
 ## 설정 변경
 
-[ai/config/settings.yaml](ai/config/settings.yaml)에서 티커, 학습 파라미터 등을 조정할 수 있습니다.
+[src/config/settings.yaml](src/config/settings.yaml)에서 티커, 학습 파라미터 등을 조정할 수 있습니다.
 
 ```yaml
 environment:

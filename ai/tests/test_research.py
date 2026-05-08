@@ -6,11 +6,11 @@ PACKAGE_ROOT = Path(__file__).resolve().parents[1]
 if str(PACKAGE_ROOT) not in sys.path:
     sys.path.insert(0, str(PACKAGE_ROOT))
 
-from ai.data.market_data import fetch_prices
-from ai.envs.portfolio_env import PortfolioEnv
-from ai.research.news_fetcher import fetch_all
-from ai.research.news_store import NewsStore
-from ai.research.risk_detector import RiskDetector
+from src.data.market_data import fetch_prices
+from src.envs.portfolio_env import PortfolioEnv
+from src.research.news_fetcher import fetch_all
+from src.research.news_store import NewsStore
+from src.research.risk_detector import RiskDetector
 
 
 def main():

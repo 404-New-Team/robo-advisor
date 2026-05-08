@@ -6,11 +6,11 @@ import yaml
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.vec_env import DummyVecEnv
 
-from ai.agents.ppo_agent import PPOAgent
-from ai.data.market_data import fetch_prices
-from ai.envs.portfolio_env import PortfolioEnv
+from src.agents.ppo_agent import PPOAgent
+from src.data.market_data import fetch_prices
+from src.envs.portfolio_env import PortfolioEnv
 
-CONFIG_PATH = Path("ai/config/settings.yaml")
+CONFIG_PATH = Path(__file__).parent / "src" / "config" / "settings.yaml"
 BEST_PATH   = Path("checkpoints/portfolio_ppo_best")
 SCORE_PATH  = Path("checkpoints/best_score.txt")
 

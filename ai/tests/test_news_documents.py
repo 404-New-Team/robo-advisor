@@ -1,5 +1,5 @@
-from ai.research.documents import normalize_article
-from ai.research.news_store import NewsStore
+from src.research.documents import normalize_article
+from src.research.news_store import NewsStore
 
 
 class DeterministicEmbeddingFunction:
