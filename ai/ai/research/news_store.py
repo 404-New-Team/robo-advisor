@@ -14,7 +14,12 @@ PERSIST_DIR = str(Path(__file__).parent.parent / ".cache" / "chromadb")
 
 
 class NewsStore:
-    def __init__(self, persist_dir: str = PERSIST_DIR):
+    def __init__(
+        self,
+        persist_dir: str = PERSIST_DIR,
+        collection_name: str = "financial_news",
+        embedding_function=None,
+    ):
         import chromadb
         from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
 
@@ -28,8 +33,8 @@ class NewsStore:
             # 로컬 모드 (기본값)
             self.client = chromadb.PersistentClient(path=persist_dir)
         self.collection = self.client.get_or_create_collection(
-            name="financial_news",
-            embedding_function=DefaultEmbeddingFunction(),
+            name=collection_name,
+            embedding_function=embedding_function or DefaultEmbeddingFunction(),
         )
 
     def add(self, articles: list[dict]) -> int:

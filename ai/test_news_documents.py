@@ -2,6 +2,28 @@ from ai.research.documents import normalize_article
 from ai.research.news_store import NewsStore
 
 
+class DeterministicEmbeddingFunction:
+    def name(self):
+        return "default"
+
+    def __call__(self, input):
+        return self._embed(input)
+
+    def embed_query(self, input):
+        return self._embed(input)
+
+    def embed_documents(self, input):
+        return self._embed(input)
+
+    def _embed(self, input):
+        vectors = []
+        for text in input:
+            length = float(len(text) % 17)
+            checksum = float(sum(ord(ch) for ch in text) % 31)
+            vectors.append([length, checksum, 1.0])
+        return vectors
+
+
 class FakeCollection:
     def __init__(self):
         self.ids = []
@@ -68,3 +90,39 @@ def test_news_store_add_and_search_returns_citation_ready_items():
     assert results[0]["metadata"]["url"] == "https://example.com/aapl"
     assert results[0]["metadata"]["document_type"] == "news"
     assert results[0]["score"] > 0
+
+
+def test_news_store_with_local_chromadb(tmp_path):
+    store = NewsStore(
+        persist_dir=str(tmp_path / "chroma"),
+        collection_name="financial_news_test",
+        embedding_function=DeterministicEmbeddingFunction(),
+    )
+
+    added = store.add(
+        [
+            {
+                "title": "AAPL regulatory pressure",
+                "text": "AAPL faces regulatory pressure after earnings guidance.",
+                "published": "2026-05-02",
+                "source": "Example Finance",
+                "url": "https://example.com/aapl-regulatory",
+            },
+            {
+                "title": "MSFT market volatility",
+                "text": "MSFT remains exposed to market volatility and liquidity risk.",
+                "published": "2026-05-03",
+                "source": "Example Finance",
+                "url": "https://example.com/msft-market",
+            },
+        ]
+    )
+    results = store.search("AAPL regulation earnings", n=2)
+    citations = store.citations("AAPL regulation earnings", n=2)
+
+    assert added == 2
+    assert store.count() == 2
+    assert results
+    assert results[0]["metadata"]["url"]
+    assert results[0]["metadata"]["document_type"] == "news"
+    assert citations[0]["score"] > 0
