@@ -24,13 +24,13 @@ TODAY = str(date.today())
     },
 )
 async def run_backtest(
-    tickers: str = Query(..., description="콤마로 구분된 티커 목록 (예: 005930,SPY,GLD)"),
+    tickers: list[str] = Query(..., description="티커 목록 (예: ?tickers=005930&tickers=SPY&tickers=GLD)"),
     strategy: Literal["drl", "mvo", "equal_weight"] = Query(..., description="포트폴리오 전략"),
     start_date: str = Query(default=FIVE_YEARS_AGO, description="백테스트 시작일 (YYYY-MM-DD)"),
     end_date: str = Query(default=TODAY, description="백테스트 종료일 (YYYY-MM-DD)"),
     db: Session = Depends(get_db),
 ):
-    ticker_list = [t.strip() for t in tickers.split(",") if t.strip()]
+    ticker_list = [t.strip() for t in tickers if t.strip()]
     if not ticker_list:
         raise HTTPException(status_code=400, detail={"message": "tickers가 비어있습니다.", "detail": None})
 
