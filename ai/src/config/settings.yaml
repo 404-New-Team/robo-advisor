@@ -5,6 +5,7 @@ environment:
   initial_balance: 1000000
   transaction_cost: 0.00015
   slippage: 0.0005
+  max_drawdown_threshold: 0.15
 
 risk:
   tag_names:

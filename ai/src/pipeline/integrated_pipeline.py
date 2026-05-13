@@ -52,6 +52,7 @@ class IntegratedPipeline:
             window_size=env_cfg["window_size"],
             transaction_cost=env_cfg["transaction_cost"],
             slippage=env_cfg.get("slippage", 0.0005),
+            max_drawdown_threshold=env_cfg.get("max_drawdown_threshold", 0.15),
             risk_penalty_lambda=self.cfg["reward"]["risk_penalty_lambda"],
             drawdown_penalty_mu=self.cfg["reward"]["drawdown_penalty_mu"],
         )

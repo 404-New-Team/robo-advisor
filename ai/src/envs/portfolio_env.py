@@ -46,6 +46,7 @@ class PortfolioEnv(gym.Env):
         drawdown_penalty_mu: float = 1.0,
         reward_variant: RewardVariant = RewardVariant.R3_FULL,
         sharpe_window: int = 60,
+        max_drawdown_threshold: float = 0.15,
         render_mode: Optional[str] = None,
     ):
         super().__init__()
@@ -61,6 +62,7 @@ class PortfolioEnv(gym.Env):
         self.drawdown_penalty_mu = drawdown_penalty_mu
         self.reward_variant = RewardVariant(reward_variant)
         self.sharpe_window = sharpe_window
+        self.max_drawdown_threshold = max_drawdown_threshold
         self.render_mode = render_mode
         self._return_history: deque = deque(maxlen=sharpe_window)
 
@@ -131,8 +133,10 @@ class PortfolioEnv(gym.Env):
         self.risk_state.step_decay()
         self._current_step += 1
 
+        drawdown = (self._peak_value - self._portfolio_value) / (self._peak_value + 1e-8)
+        terminated = float(drawdown) > self.max_drawdown_threshold
         truncated = self._current_step >= len(self.valid_dates) - 1
-        return self._get_obs(), reward, False, truncated, self._get_info()
+        return self._get_obs(), reward, terminated, truncated, self._get_info()
 
     def inject_risk_tags(self, tags: list) -> None:
         """외부 리서치 에이전트에서 리스크 태그를 주입하는 인터페이스."""
