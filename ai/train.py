@@ -11,9 +11,11 @@ from src.data.market_data import fetch_prices
 from src.envs.portfolio_env import PortfolioEnv
 from src.envs.risk_state import RiskState
 
-CONFIG_PATH = Path(__file__).parent / "src" / "config" / "settings.yaml"
-BEST_PATH   = Path("checkpoints/portfolio_ppo_best")
-SCORE_PATH  = Path("checkpoints/best_score.txt")
+AI_DIR = Path(__file__).resolve().parent
+CONFIG_PATH = AI_DIR / "src" / "config" / "settings.yaml"
+CHECKPOINT_DIR = AI_DIR / "checkpoints"
+BEST_PATH = CHECKPOINT_DIR / "portfolio_ppo_best"
+SCORE_PATH = CHECKPOINT_DIR / "best_score.txt"
 
 
 class TrainingLogger(BaseCallback):
@@ -90,7 +92,10 @@ def plot_learning_curve(logger: TrainingLogger, save_path: Path) -> None:
 
 def load_best_score() -> float:
     if SCORE_PATH.exists():
-        return float(SCORE_PATH.read_text().strip())
+        try:
+            return float(SCORE_PATH.read_text().strip())
+        except ValueError:
+            return float("-inf")
     return float("-inf")
 
 
@@ -124,10 +129,14 @@ def main():
         learning_rate=train_cfg["learning_rate"],
         batch_size=train_cfg["batch_size"],
     )
-    agent.train(total_timesteps=train_cfg["total_timesteps"], callbacks=[logger])
+    agent.train(
+        total_timesteps=train_cfg["total_timesteps"],
+        checkpoint_dir=str(CHECKPOINT_DIR),
+        callbacks=[logger],
+    )
 
     print("\n학습 곡선 저장 중...")
-    plot_learning_curve(logger, Path("checkpoints/learning_curve.png"))
+    plot_learning_curve(logger, CHECKPOINT_DIR / "learning_curve.png")
 
     print("\n평가 중 (2024년 데이터)...")
     mean_reward, mean_value = evaluate(agent, eval_env)
@@ -138,7 +147,8 @@ def main():
     print(f"  초과 수익:             {(mean_value - bnh_value) * 100:+.2f}%p")
 
     best_score = load_best_score()
-    if mean_reward > best_score:
+    best_model_exists = BEST_PATH.with_suffix(".zip").exists()
+    if mean_reward > best_score or not best_model_exists:
         agent.save(str(BEST_PATH))
         save_best_score(mean_reward)
         print(f"\n최고 성능 갱신 ({best_score:.4f} → {mean_reward:.4f})")

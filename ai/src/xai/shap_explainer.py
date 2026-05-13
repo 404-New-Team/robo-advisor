@@ -67,7 +67,7 @@ class SHAPExplainer:
         result = self.explain(obs)
         importance = result["shap_importance"]          # 항상 1D
         top_idx = importance.argsort()[::-1][:k]
-        return [(self.feature_names[int(i)], round(float(importance[i]), 4)) for i in top_idx]
+        return [(self.feature_names[int(i)], round(float(importance[i]), 6)) for i in top_idx]
 
     # ------------------------------------------------------------------
     # Summary Plot
@@ -275,8 +275,11 @@ class SHAPExplainer:
         else:
             arr = np.asarray(shap_values, dtype=float)
 
+        n_features = len(self.feature_names)
         if arr.ndim == 2:
             arr = arr[np.newaxis]        # (n_samples, n_features) → (1, n_samples, n_features)
+        elif arr.ndim == 3 and arr.shape[1] == n_features:
+            arr = np.moveaxis(arr, -1, 0)  # (samples, features, outputs) -> (outputs, samples, features)
         elif arr.ndim != 3:
             arr = arr.reshape(1, 1, -1)
         return arr

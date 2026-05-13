@@ -40,7 +40,7 @@ def plot_reward_distributions(
     ax = axes[0]
     ax.boxplot(
         [rewards_by_variant[v] for v in VARIANTS],
-        labels=VARIANTS,
+        tick_labels=VARIANTS,
         patch_artist=True,
         boxprops=dict(facecolor="#AED6F1", color="#1A5276"),
         medianprops=dict(color="#C0392B", linewidth=2),

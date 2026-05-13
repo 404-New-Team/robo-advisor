@@ -27,8 +27,20 @@ from src.envs.risk_state import RiskState
 from src.agents.ppo_agent import PPOAgent
 from src.xai.shap_explainer import SHAPExplainer
 
-CONFIG_PATH = Path(__file__).parent.parent / "src" / "config" / "settings.yaml"
-SAVE_DIR = Path(__file__).parent / "results" / "shap"
+AI_DIR = Path(__file__).resolve().parent.parent
+CONFIG_PATH = AI_DIR / "src" / "config" / "settings.yaml"
+DEFAULT_CHECKPOINT = AI_DIR / "checkpoints" / "portfolio_ppo_best"
+DEMO_CHECKPOINT_DIR = AI_DIR / "checkpoints" / "shap_demo"
+SAVE_DIR = AI_DIR / "experiments" / "results" / "shap"
+
+
+def resolve_checkpoint(path: str | None) -> Path:
+    checkpoint = Path(path).expanduser() if path else DEFAULT_CHECKPOINT
+    if not checkpoint.is_absolute():
+        cwd_candidate = Path.cwd() / checkpoint
+        ai_candidate = AI_DIR / checkpoint
+        checkpoint = cwd_candidate if cwd_candidate.with_suffix(".zip").exists() else ai_candidate
+    return checkpoint
 
 
 def build_feature_names(tickers: list, tag_names: list) -> list:
@@ -58,6 +70,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--checkpoint", type=str, default=None,
                         help="학습된 모델 경로 (없으면 단기 학습)")
+    parser.add_argument("--demo_train", action="store_true",
+                        help="Run a short demo training if no checkpoint is available.")
     parser.add_argument("--n_background", type=int, default=50,
                         help="KernelExplainer 배경 샘플 수 (클수록 정확하나 느림)")
     parser.add_argument("--n_summary", type=int, default=30,
@@ -86,20 +100,29 @@ def main():
     )
 
     # ── 모델 로드 or 단기 학습 ─────────────────────────────────
-    if args.checkpoint and Path(args.checkpoint + ".zip").exists():
+    args.checkpoint = str(resolve_checkpoint(args.checkpoint))
+    if Path(args.checkpoint).with_suffix(".zip").exists():
         print(f"\n체크포인트 로드: {args.checkpoint}")
         try:
             agent = PPOAgent.load(args.checkpoint, env=env)
         except ValueError as e:
+            if not args.demo_train:
+                raise
             print(f"  [경고] 체크포인트 로드 실패: {e}")
             print("  관측 공간이 변경됐습니다 (구 모델 호환 불가).")
             print("  시연용 단기 학습으로 대체합니다 (10,000 스텝)...")
             agent = PPOAgent(env=env, learning_rate=cfg["training"]["learning_rate"])
-            agent.train(total_timesteps=10_000, checkpoint_dir="checkpoints/shap_demo/")
+            agent.train(total_timesteps=10_000, checkpoint_dir=str(DEMO_CHECKPOINT_DIR))
     else:
+        if not args.demo_train:
+            raise FileNotFoundError(
+                f"Checkpoint not found: {Path(args.checkpoint).with_suffix('.zip')}. "
+                "Run `python ai/train.py` first, pass --checkpoint, or use --demo_train "
+                "only for a short demonstration model."
+            )
         print("\n체크포인트 없음 — 시연용 단기 학습 (10,000 스텝)")
         agent = PPOAgent(env=env, learning_rate=cfg["training"]["learning_rate"])
-        agent.train(total_timesteps=10_000, checkpoint_dir="checkpoints/shap_demo/")
+        agent.train(total_timesteps=10_000, checkpoint_dir=str(DEMO_CHECKPOINT_DIR))
 
     # ── 관측값 수집 ────────────────────────────────────────────
     print(f"\n관측값 수집 중 (background={args.n_background}, summary={args.n_summary})...")
