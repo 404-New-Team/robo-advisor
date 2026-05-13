@@ -3,7 +3,8 @@ environment:
   tickers: ["SPY", "QQQ", "GLD", "TLT", "EFA", "AAPL", "MSFT", "069500", "102110", "233740"]
   window_size: 20
   initial_balance: 1000000
-  transaction_cost: 0.001
+  transaction_cost: 0.00015
+  slippage: 0.0005
 
 risk:
   tag_names:

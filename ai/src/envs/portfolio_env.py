@@ -40,7 +40,8 @@ class PortfolioEnv(gym.Env):
         prices: pd.DataFrame,
         risk_state: Optional[RiskState] = None,
         window_size: int = 20,
-        transaction_cost: float = 0.001,
+        transaction_cost: float = 0.00015,
+        slippage: float = 0.0005,
         risk_penalty_lambda: float = 0.5,
         drawdown_penalty_mu: float = 1.0,
         reward_variant: RewardVariant = RewardVariant.R3_FULL,
@@ -55,6 +56,7 @@ class PortfolioEnv(gym.Env):
         self.n_tags = len(RISK_TAG_NAMES)
         self.window_size = window_size
         self.transaction_cost = transaction_cost
+        self.slippage = slippage
         self.risk_penalty_lambda = risk_penalty_lambda
         self.drawdown_penalty_mu = drawdown_penalty_mu
         self.reward_variant = RewardVariant(reward_variant)
@@ -117,7 +119,8 @@ class PortfolioEnv(gym.Env):
         )
 
         turnover = np.sum(np.abs(new_weights - self._current_weights))
-        portfolio_return = float(np.dot(new_weights, asset_returns)) - self.transaction_cost * turnover
+        trading_cost = (self.transaction_cost + self.slippage) * turnover
+        portfolio_return = float(np.dot(new_weights, asset_returns)) - trading_cost
         self._return_history.append(portfolio_return)
 
         reward = self._compute_reward(portfolio_return, new_weights)
