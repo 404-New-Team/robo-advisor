@@ -9,6 +9,7 @@ from stable_baselines3.common.vec_env import DummyVecEnv
 from src.agents.ppo_agent import PPOAgent
 from src.data.market_data import fetch_prices
 from src.envs.portfolio_env import PortfolioEnv
+from src.envs.risk_state import RiskState
 
 CONFIG_PATH = Path(__file__).parent / "src" / "config" / "settings.yaml"
 BEST_PATH   = Path("checkpoints/portfolio_ppo_best")
@@ -35,11 +36,15 @@ class TrainingLogger(BaseCallback):
 
 
 def make_env_fn(prices, cfg):
+    env_cfg = cfg["environment"]
     def _init():
         return PortfolioEnv(
             prices=prices,
-            window_size=cfg["environment"]["window_size"],
-            transaction_cost=cfg["environment"]["transaction_cost"],
+            risk_state=RiskState(),
+            window_size=env_cfg["window_size"],
+            transaction_cost=env_cfg["transaction_cost"],
+            slippage=env_cfg.get("slippage", 0.0005),
+            max_drawdown_threshold=env_cfg.get("max_drawdown_threshold", 0.15),
             risk_penalty_lambda=cfg["reward"]["risk_penalty_lambda"],
             drawdown_penalty_mu=cfg["reward"]["drawdown_penalty_mu"],
         )
@@ -95,7 +100,7 @@ def save_best_score(score: float) -> None:
 
 
 def main():
-    with open(CONFIG_PATH) as f:
+    with open(CONFIG_PATH, encoding="utf-8") as f:
         cfg = yaml.safe_load(f)
 
     env_cfg   = cfg["environment"]
