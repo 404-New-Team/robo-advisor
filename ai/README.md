@@ -87,6 +87,65 @@ pip install -r requirements.txt
 $env:ANTHROPIC_API_KEY="sk-ant-..."
 ```
 
+## Docker 실행
+
+`ai/` 모듈만 독립적으로 재현 실행할 수 있도록 Dockerfile과 compose 파일을 제공합니다. backend/frontend는 아직 통합 대상에서 제외하고, AI 학습 및 실험 스크립트 실행 환경만 고정합니다.
+
+이미지 빌드:
+
+```powershell
+cd ai
+docker compose build ai
+```
+
+리서치 에이전트까지 Docker 안에서 실행하려면 현재 셸에 API 키를 먼저 설정합니다. 키를 사용하지 않는 RL/백테스트/ANOVA 실험은 이 단계가 필요 없습니다.
+
+```powershell
+$env:ANTHROPIC_API_KEY="sk-ant-..."
+```
+
+테스트 실행:
+
+```powershell
+docker compose run --rm ai
+```
+
+AI API 서버 실행:
+
+```powershell
+docker compose --profile serve up serve
+```
+
+PPO 학습 실행:
+
+```powershell
+docker compose --profile train run --rm train
+```
+
+SHAP 실험 실행:
+
+```powershell
+docker compose --profile experiments run --rm shap
+```
+
+임의의 실험 스크립트를 실행할 수도 있습니다.
+
+```powershell
+docker compose run --rm ai python experiments/reward_experiment.py
+docker compose run --rm ai python experiments/walk_forward_experiment.py
+docker compose run --rm ai python experiments/mvo_experiment.py
+docker compose run --rm ai python experiments/strategy_anova_experiment.py
+docker compose run --rm ai python experiments/market_regime_anova_experiment.py
+```
+
+컨테이너에서 생성한 산출물은 호스트의 다음 경로에 유지됩니다.
+
+| 호스트 경로 | 컨테이너 경로 | 용도 |
+| --- | --- | --- |
+| `ai/checkpoints/` | `/app/checkpoints/` | PPO 체크포인트, 학습 곡선 |
+| `ai/experiments/results/` | `/app/experiments/results/` | 실험 JSON, SHAP plot |
+| `ai/.cache/` | `/app/.cache/` | 시장 데이터 및 ChromaDB 캐시 |
+
 ## 실행 순서
 
 모든 명령은 `ai/` 디렉터리에서 실행하는 것을 기준으로 작성했습니다.
