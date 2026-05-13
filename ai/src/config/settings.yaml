@@ -26,6 +26,9 @@ training:
   batch_size: 256
   learning_rate: 0.0003
 
+backtest:
+  risk_free_rate: 0.02
+
 research:
   model: "claude-haiku-4-5-20251001"
   max_tokens: 512
