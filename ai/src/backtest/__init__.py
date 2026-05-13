@@ -1,3 +1,11 @@
-from .walk_forward import WalkForwardBacktest, WalkForwardConfig, WalkForwardResult
+from .metrics import PerformanceMetrics, compute_metrics
+from .walk_forward import WalkForwardBacktest, WalkForwardConfig, WalkForwardResult, FoldMetrics
 
-__all__ = ["WalkForwardBacktest", "WalkForwardConfig", "WalkForwardResult"]
+__all__ = [
+    "PerformanceMetrics",
+    "compute_metrics",
+    "WalkForwardBacktest",
+    "WalkForwardConfig",
+    "WalkForwardResult",
+    "FoldMetrics",
+]

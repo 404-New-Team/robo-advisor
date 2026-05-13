@@ -82,10 +82,7 @@ def main():
                 "test_end": fm.test_end,
                 "n_train_bars": fm.n_train_bars,
                 "n_test_bars": fm.n_test_bars,
-                "total_return": fm.total_return,
-                "cagr": fm.cagr,
-                "sharpe": fm.sharpe,
-                "max_drawdown": fm.max_drawdown,
+                **fm.metrics.as_dict(),
             }
             for fm in result.folds
         ],
