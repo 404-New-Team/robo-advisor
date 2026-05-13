@@ -1,7 +1,8 @@
 """
 포트폴리오 관리 RL 환경 (Gymnasium 호환).
 
-관측 공간: [시장 피처 (n_assets×5)] + [리스크 태그 (n_tags)] + [현재 비중 (n_assets)]
+관측 공간: [시장 피처 (n_assets×11)] + [리스크 태그 (n_tags)] + [현재 비중 (n_assets)]
+  시장 피처 11개: ret1d, ret5d, ret20d, vol20d, mom20d + rsi14, macd, macd_signal, bb_upper, bb_lower, bb_position
 행동 공간: logit 벡터 → softmax → 포트폴리오 비중 (합=1)
 보상 함수: 로그 수익률 - 리스크 집중도 페널티 - 최대낙폭 페널티
 
@@ -56,8 +57,8 @@ class PortfolioEnv(gym.Env):
                 f"yfinance 다운로드 실패 또는 캐시 손상일 수 있습니다."
             )
 
-        # 관측 공간: 시장(n_assets*5) + 리스크태그(n_tags) + 현재비중(n_assets)
-        n_obs = self.n_assets * 5 + self.n_tags + self.n_assets
+        # 관측 공간: 시장특성(n_assets*11, 기본5+기술지표6) + 리스크태그(n_tags) + 현재비중(n_assets)
+        n_obs = self.n_assets * 11 + self.n_tags + self.n_assets
         self.observation_space = spaces.Box(
             low=-np.inf, high=np.inf, shape=(n_obs,), dtype=np.float32
         )
