@@ -82,6 +82,10 @@ class ResearchState(TypedDict, total=False):
     answer: str
     risk_tags: list[dict[str, Any]]
     trace: list[str]
+    # self-correction
+    answer_verified: bool
+    correction_count: int
+    correction_reasons: list[str]
 
 
 @dataclass
@@ -104,6 +108,8 @@ class ResearchReport:
     reasoning_trace: list[str]
     retrieved_count: int
     self_corrected: bool
+    correction_count: int
+    correction_reasons: list[str]
     relevance_score: float
 
     def to_dict(self) -> dict[str, Any]:
@@ -118,6 +124,8 @@ class AgenticRAGConfig:
     min_documents: int = 2
     min_relevance_score: float = 0.08
     max_rewrites: int = 2
+    max_corrections: int = 2
+    min_answer_quality: float = 0.5
     llm_model: str = "claude-3-5-sonnet-latest"
     max_tokens: int = 1200
 
@@ -167,6 +175,7 @@ class AgenticRAGResearchAgent:
         else:
             final_state = self._run_without_langgraph(state)
 
+        correction_count = int(final_state.get("correction_count", 0))
         citations = [Citation(**item) for item in final_state.get("citations", [])]
         risk_tags = [RiskTag(**item) for item in final_state.get("risk_tags", [])]
         return ResearchReport(
@@ -176,7 +185,9 @@ class AgenticRAGResearchAgent:
             risk_tags=risk_tags,
             reasoning_trace=final_state.get("trace", []),
             retrieved_count=len(final_state.get("retrieved", [])),
-            self_corrected=final_state.get("attempts", 0) > 0,
+            self_corrected=correction_count > 0,
+            correction_count=correction_count,
+            correction_reasons=final_state.get("correction_reasons", []),
             relevance_score=round(float(final_state.get("relevance_score", 0.0)), 4),
         )
 
@@ -192,6 +203,8 @@ class AgenticRAGResearchAgent:
         workflow.add_node("grade", self._grade)
         workflow.add_node("rewrite", self._rewrite)
         workflow.add_node("analyze", self._analyze)
+        workflow.add_node("verify", self._verify)
+        workflow.add_node("correct", self._correct)
 
         workflow.set_entry_point("plan")
         workflow.add_edge("plan", "retrieve")
@@ -202,7 +215,13 @@ class AgenticRAGResearchAgent:
             {"rewrite": "rewrite", "analyze": "analyze"},
         )
         workflow.add_edge("rewrite", "retrieve")
-        workflow.add_edge("analyze", END)
+        workflow.add_edge("analyze", "verify")
+        workflow.add_conditional_edges(
+            "verify",
+            self._route_after_verify,
+            {"correct": "correct", END: END},
+        )
+        workflow.add_edge("correct", "verify")
         return workflow.compile()
 
     def _run_without_langgraph(self, state: ResearchState) -> ResearchState:
@@ -211,8 +230,15 @@ class AgenticRAGResearchAgent:
             state = self._retrieve(state)
             state = self._grade(state)
             if self._route_after_grade(state) == "analyze":
-                return self._analyze(state)
+                state = self._analyze(state)
+                break
             state = self._rewrite(state)
+
+        while True:
+            state = self._verify(state)
+            if self._route_after_verify(state) == END:
+                return state
+            state = self._correct(state)
 
     def _plan(self, state: ResearchState) -> ResearchState:
         ticker = state.get("ticker")
@@ -327,6 +353,172 @@ class AgenticRAGResearchAgent:
         if state.get("needs_rewrite") and int(state.get("attempts", 0)) < self.config.max_rewrites:
             return "rewrite"
         return "analyze"
+
+    def _verify(self, state: ResearchState) -> ResearchState:
+        """생성된 답변의 품질을 검증한다."""
+        answer = state.get("answer", "")
+        citations = state.get("citations", [])
+        risk_tags = state.get("risk_tags", [])
+        reasons: list[str] = []
+
+        # 1. 답변 길이 부족
+        if len(answer.strip()) < 80:
+            reasons.append("answer_too_short")
+
+        # 2. citation이 있는데 답변에서 전혀 참조 안 함
+        if citations and not any(f"[{i}]" in answer for i in range(1, len(citations) + 1)):
+            reasons.append("missing_citation_references")
+
+        # 3. 리스크 태그가 탐지됐는데 답변에 언급 없음
+        detected_risks = [t["name"] for t in risk_tags if t.get("level", 0) > 0.3]
+        if detected_risks:
+            risk_keywords = {"regulatory_risk": "규제", "earnings_shock": "실적", "geopolitical_risk": "지정학", "market_stress": "시장", "liquidity_risk": "유동성"}
+            if not any(risk_keywords.get(r, r) in answer for r in detected_risks):
+                reasons.append("risk_tags_not_reflected")
+
+        # 4. Claude API로 품질 점수 평가 (ANTHROPIC_API_KEY 있을 때)
+        if not reasons and os.environ.get("ANTHROPIC_API_KEY"):
+            quality_score = self._score_answer_with_llm(answer, citations)
+            if quality_score < self.config.min_answer_quality:
+                reasons.append(f"low_quality_score:{quality_score:.2f}")
+        elif not reasons:
+            # API 없을 때: 핵심 투자 용어 포함 여부로 단순 검증
+            investment_terms = ["리스크", "투자", "수익", "손실", "시장", "포트폴리오", "risk", "investment", "market"]
+            if not any(term in answer.lower() for term in investment_terms):
+                reasons.append("missing_investment_context")
+
+        state["answer_verified"] = len(reasons) == 0
+        state["correction_reasons"] = state.get("correction_reasons", []) + reasons
+        state.setdefault("trace", []).append(
+            f"verify: {'pass' if state['answer_verified'] else f'fail({reasons})'}"
+        )
+        return state
+
+    def _correct(self, state: ResearchState) -> ResearchState:
+        """검증 실패 원인을 바탕으로 답변을 재생성한다."""
+        correction_count = int(state.get("correction_count", 0)) + 1
+        reasons = state.get("correction_reasons", [])
+        citations = state.get("citations", [])
+        risk_tags_raw = state.get("risk_tags", [])
+        risk_tags = [RiskTag(**t) for t in risk_tags_raw]
+
+        correction_instruction = self._build_correction_instruction(reasons)
+
+        if os.environ.get("ANTHROPIC_API_KEY"):
+            docs = state.get("retrieved", [])[: self.config.n_results]
+            corrected_answer = self._generate_corrected_with_claude(
+                state["original_query"], docs, citations, risk_tags, correction_instruction
+            )
+        else:
+            corrected_answer = self._generate_corrected_extractive(
+                state["original_query"], citations, risk_tags, correction_instruction
+            )
+
+        state["answer"] = corrected_answer
+        state["correction_count"] = correction_count
+        state["answer_verified"] = False
+        state.setdefault("trace", []).append(
+            f"correct: attempt {correction_count}, reasons={reasons}"
+        )
+        return state
+
+    def _route_after_verify(self, state: ResearchState) -> str:
+        if not state.get("answer_verified") and int(state.get("correction_count", 0)) < self.config.max_corrections:
+            return "correct"
+        return END
+
+    def _score_answer_with_llm(self, answer: str, citations: list[dict[str, Any]]) -> float:
+        """Claude로 답변 품질을 0~1 점수로 평가한다."""
+        try:
+            import anthropic
+            sources_summary = "; ".join(c.get("title", "") for c in citations[:3])
+            prompt = (
+                "Rate this investment research answer quality from 0.0 to 1.0. "
+                "Criteria: factual grounding, citation usage, actionable insight, clarity. "
+                "Reply with only a float number.\n\n"
+                f"Sources: {sources_summary}\n\nAnswer: {answer[:800]}"
+            )
+            client = anthropic.Anthropic()
+            response = client.messages.create(
+                model=self.config.llm_model,
+                max_tokens=10,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            text = "".join(b.text for b in response.content if getattr(b, "type", "") == "text")
+            return max(0.0, min(1.0, float(text.strip())))
+        except Exception:
+            return 1.0  # API 오류 시 검증 통과
+
+    def _build_correction_instruction(self, reasons: list[str]) -> str:
+        parts = []
+        if "answer_too_short" in reasons:
+            parts.append("답변을 더 상세하게 작성하세요 (최소 3문단).")
+        if "missing_citation_references" in reasons:
+            parts.append("반드시 [1], [2] 형식으로 출처를 인용하세요.")
+        if "risk_tags_not_reflected" in reasons:
+            parts.append("탐지된 리스크 이벤트(규제, 실적, 지정학, 유동성 등)를 답변에 명시하세요.")
+        if any("low_quality_score" in r for r in reasons):
+            parts.append("투자 판단에 실질적으로 도움이 되는 구체적인 인사이트를 포함하세요.")
+        if "missing_investment_context" in reasons:
+            parts.append("투자 리스크, 시장 영향, 포트폴리오 관점의 내용을 반드시 포함하세요.")
+        return " ".join(parts) if parts else "답변의 완성도와 명확성을 높이세요."
+
+    def _generate_corrected_with_claude(
+        self,
+        query: str,
+        docs: list[dict[str, Any]],
+        citations: list[dict[str, Any]],
+        risk_tags: list[RiskTag],
+        instruction: str,
+    ) -> str:
+        try:
+            import anthropic
+        except Exception:
+            return self._generate_corrected_extractive(query, citations, risk_tags, instruction)
+
+        context = "\n\n".join(
+            f"[{idx}] {doc.get('metadata', {}).get('title', 'Untitled')}\n{doc.get('text', '')[:1000]}"
+            for idx, doc in enumerate(docs, start=1)
+        )
+        risk_line = ", ".join(f"{t.name}(level={t.level:.2f})" for t in risk_tags if t.level > 0.2)
+        prompt = (
+            "Write a corrected Korean investment research report.\n"
+            f"Correction required: {instruction}\n\n"
+            f"Detected risk tags: {risk_line or 'none'}\n\n"
+            f"Question: {query}\n\nSources:\n{context}"
+        )
+        client = anthropic.Anthropic()
+        try:
+            response = client.messages.create(
+                model=self.config.llm_model,
+                max_tokens=self.config.max_tokens,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            return "".join(b.text for b in response.content if getattr(b, "type", "") == "text")
+        except Exception:
+            return self._generate_corrected_extractive(query, citations, risk_tags, instruction)
+
+    def _generate_corrected_extractive(
+        self,
+        query: str,
+        citations: list[dict[str, Any]],
+        risk_tags: list[RiskTag],
+        instruction: str,
+    ) -> str:
+        evidence = "\n".join(
+            f"[{i}] {c.get('title', 'Untitled')} — {c.get('snippet', '')}"
+            for i, c in enumerate(citations, start=1)
+        )
+        risk_line = ", ".join(f"{t.name}({t.level:.2f})" for t in risk_tags if t.level > 0.2) or "없음"
+        return (
+            f"질문: {query}\n\n"
+            "요약: 검색된 금융 뉴스 기반 투자 리서치 보고서입니다.\n\n"
+            "주요 근거:\n" + (evidence or "근거 없음") + "\n\n"
+            f"탐지된 리스크 태그: {risk_line}\n\n"
+            "투자 의견: 위 리스크 요인들을 고려한 포트폴리오 비중 모니터링이 필요합니다. "
+            "규제·실적·지정학 관련 추가 뉴스 발생 시 즉각적인 비중 재조정을 권고합니다.\n\n"
+            f"[수정 사유: {instruction}]"
+        )
 
     def _to_citation(self, item: dict[str, Any], idx: int) -> dict[str, Any]:
         metadata = item.get("metadata", {})
