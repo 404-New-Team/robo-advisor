@@ -102,7 +102,7 @@ def main():
     train_cfg = cfg["training"]
 
     print("데이터 로드 중...")
-    train_prices = fetch_prices(env_cfg["tickers"], start="2020-01-01", end="2023-12-31")
+    train_prices = fetch_prices(env_cfg["tickers"], start="2019-01-01", end="2023-12-31")
     eval_prices  = fetch_prices(env_cfg["tickers"], start="2024-01-01", end="2024-12-31")
     print(f"  학습: {len(train_prices)}행  |  평가: {len(eval_prices)}행")
 
