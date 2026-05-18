@@ -2,7 +2,10 @@
 RSS 피드 기반 금융 뉴스 수집 모듈.
 """
 
-import feedparser
+try:
+    import feedparser
+except ImportError:  # pragma: no cover - exercised when optional RSS parser is absent
+    feedparser = None
 
 from .documents import normalize_article
 
@@ -14,6 +17,8 @@ RSS_FEEDS = {
 
 
 def fetch_feed(url: str, max_articles: int = 20, provider: str = "") -> list[dict]:
+    if feedparser is None:
+        raise RuntimeError("feedparser is not installed. Install ai/requirements.txt to fetch RSS feeds.")
     feed = feedparser.parse(url)
     articles = []
     for entry in feed.entries[:max_articles]:

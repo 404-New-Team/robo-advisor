@@ -30,4 +30,5 @@ logs/
 *.log
 
 # 실험 결과
-ai/experiments/results/
+.pytest_cache_local/
+.pytest_tmp/
