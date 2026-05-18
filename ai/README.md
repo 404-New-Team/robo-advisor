@@ -122,17 +122,17 @@ cd ai
 # 포트폴리오 최적화
 Invoke-RestMethod -Uri http://localhost:8001/ai/optimize -Method Post `
   -ContentType "application/json" `
-  -Body '{"tickers":["SPY","QQQ","GLD"],"risk_level":"moderate","start_date":"2022-01-01","end_date":"2024-12-31"}'
+  -Body '{"tickers":["SPY","QQQ","GLD"],"risk_level":"moderate","start_date":"2022-01-01","end_date":"2026-05-01"}'
 
 # SHAP 해석
 Invoke-RestMethod -Uri http://localhost:8001/ai/shap -Method Post `
   -ContentType "application/json" `
-  -Body '{"tickers":["SPY","QQQ","GLD"],"target_asset":"SPY","date":"2024-01-02"}'
+  -Body '{"tickers":["SPY","QQQ","GLD"],"target_asset":"SPY","date":"2026-01-02"}'
 
 # 백테스트 (mvo 전략)
 Invoke-RestMethod -Uri http://localhost:8001/ai/backtest -Method Post `
   -ContentType "application/json" `
-  -Body '{"tickers":["SPY","QQQ","GLD"],"strategy":"mvo","start_date":"2021-01-01","end_date":"2024-12-31"}'
+  -Body '{"tickers":["SPY","QQQ","GLD"],"strategy":"mvo","start_date":"2021-01-01","end_date":"2026-05-01"}'
 ```
 
 ### 타임아웃 정책
