@@ -12,7 +12,7 @@ class ResearchRequest(BaseModel):
 class RiskEvent(BaseModel):
     type: str
     description: str
-    severity: Literal["LOW", "MEDIUM", "HIGH"]
+    severity: Literal["low", "moderate", "high"]
     detected_at: str
 
 

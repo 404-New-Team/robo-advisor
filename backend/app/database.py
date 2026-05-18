@@ -25,5 +25,5 @@ def get_db():
 
 
 def init_db() -> None:
-    from app.models import portfolio  # noqa: F401
+    from app.models import user, portfolio  # noqa: F401
     Base.metadata.create_all(bind=engine)

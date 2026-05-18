@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.auth import get_optional_user
 from app.database import get_db
 from app.models.portfolio import PortfolioResult
+from app.models.user import User
 from app.schemas.optimize import OptimizeRequest, OptimizeResponse, PortfolioMetrics, RiskTag
 from app.services.ai_client import AIServiceError, call_optimize
 
@@ -21,12 +23,16 @@ router = APIRouter(tags=["Portfolio"])
 async def optimize_portfolio(
     request: OptimizeRequest,
     db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_user),
 ):
     payload = request.model_dump()
     try:
         ai_result = await call_optimize(payload)
     except AIServiceError as e:
         raise HTTPException(status_code=e.status_code, detail={"message": e.message, "detail": e.detail})
+
+    if ai_result.get("status") != "success":
+        raise HTTPException(status_code=502, detail={"message": "AI 서비스 오류", "detail": ai_result.get("message")})
 
     weights = ai_result.get("weights", {})
     metrics_raw = ai_result.get("metrics", {})
@@ -41,6 +47,7 @@ async def optimize_portfolio(
     risk_tags = [RiskTag(**rt) for rt in risk_tags_raw]
 
     record = PortfolioResult(
+        user_id=current_user.id if current_user else None,
         tickers=",".join(request.tickers),
         risk_level=request.risk_level,
         start_date=request.start_date,

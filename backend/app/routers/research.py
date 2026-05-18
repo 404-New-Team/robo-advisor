@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from app.auth import get_optional_user
 from app.database import get_db
 from app.models.portfolio import ResearchResult
+from app.models.user import User
 from app.schemas.research import ResearchRequest, ResearchResponse, RiskEvent, NewsSource
 from app.services.ai_client import AIServiceError, call_research
 
@@ -21,6 +23,7 @@ router = APIRouter(tags=["Research"])
 async def research_query(
     request: ResearchRequest,
     db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_user),
 ):
     payload = request.model_dump()
     try:
@@ -28,10 +31,14 @@ async def research_query(
     except AIServiceError as e:
         raise HTTPException(status_code=e.status_code, detail={"message": e.message, "detail": e.detail})
 
+    if ai_result.get("status") != "success":
+        raise HTTPException(status_code=502, detail={"message": "AI 서비스 오류", "detail": ai_result.get("message")})
+
     risk_events = [RiskEvent(**re) for re in ai_result.get("risk_events", [])]
     sources = [NewsSource(**s) for s in ai_result.get("sources", [])]
 
     record = ResearchResult(
+        user_id=current_user.id if current_user else None,
         query=request.query,
         ticker=request.ticker,
         summary=ai_result.get("summary", ""),

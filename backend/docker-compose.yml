@@ -8,8 +8,6 @@ services:
       MYSQL_DATABASE: roboadvisor
       MYSQL_USER: robo
       MYSQL_PASSWORD: robopassword
-    ports:
-      - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:
@@ -25,7 +23,7 @@ services:
     container_name: robo_backend
     restart: unless-stopped
     ports:
-      - "8000:8000"
+      - "8002:8000"
     environment:
       MYSQL_HOST: mysql
       MYSQL_PORT: 3306
@@ -39,6 +37,16 @@ services:
         condition: service_healthy
     volumes:
       - ./static:/app/static
+
+  adminer:
+    image: adminer:latest
+    container_name: robo_adminer
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
 
 volumes:
   mysql_data:

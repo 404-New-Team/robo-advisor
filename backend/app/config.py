@@ -18,5 +18,9 @@ class Settings(BaseSettings):
     ai_timeout: float = 5.0
     request_timeout: float = 5.0
 
+    jwt_secret_key: str = "change-me-in-production"
+    jwt_algorithm: str = "HS256"
+    jwt_expire_minutes: int = 1440  # 24시간
+
 
 settings = Settings()

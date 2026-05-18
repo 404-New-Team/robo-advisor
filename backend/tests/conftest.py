@@ -39,6 +39,8 @@ MOCK_OPTIMIZE_RESULT = {
     ],
 }
 
+_TINY_PNG_B64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwADhQGAWjR9awAAAABJRU5ErkJggg=="
+
 MOCK_SHAP_RESULT = {
     "status": "success",
     "target_asset": "005930",
@@ -51,8 +53,8 @@ MOCK_SHAP_RESULT = {
         "market_cap_weight": 0.019,
     },
     "explanation": "삼성전자의 비중이 20%로 결정된 주요 원인은 뉴스 리스크 점수(-0.041)입니다.",
-    "force_plot_url": "/static/shap/force_005930_20260503.png",
-    "summary_plot_url": "/static/shap/summary_20260503.png",
+    "force_plot_base64": _TINY_PNG_B64,
+    "summary_plot_base64": _TINY_PNG_B64,
 }
 
 MOCK_RESEARCH_RESULT = {
@@ -63,7 +65,7 @@ MOCK_RESEARCH_RESULT = {
         {
             "type": "규제",
             "description": "미국 반도체 수출 규제 강화",
-            "severity": "HIGH",
+            "severity": "high",
             "detected_at": "2026-05-02",
         }
     ],

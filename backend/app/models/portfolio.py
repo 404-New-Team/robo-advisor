@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import JSON, DateTime, Float, Integer, String, Text
+from sqlalchemy import JSON, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 from app.database import Base
 
@@ -8,6 +8,7 @@ class PortfolioResult(Base):
     __tablename__ = "portfolio_results"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     tickers: Mapped[str] = mapped_column(Text)
     risk_level: Mapped[str] = mapped_column(String(20))
     start_date: Mapped[str] = mapped_column(String(10))
@@ -22,6 +23,7 @@ class BacktestResult(Base):
     __tablename__ = "backtest_results"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     tickers: Mapped[str] = mapped_column(Text)
     strategy: Mapped[str] = mapped_column(String(30))
     start_date: Mapped[str] = mapped_column(String(10))
@@ -36,6 +38,7 @@ class ShapResult(Base):
     __tablename__ = "shap_results"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     tickers: Mapped[str] = mapped_column(Text)
     target_asset: Mapped[str] = mapped_column(String(20))
     analysis_date: Mapped[str] = mapped_column(String(10))
@@ -49,6 +52,7 @@ class ResearchResult(Base):
     __tablename__ = "research_results"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     query: Mapped[str] = mapped_column(Text)
     ticker: Mapped[str] = mapped_column(String(20), nullable=True)
     summary: Mapped[str] = mapped_column(Text)
