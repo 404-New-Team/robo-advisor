@@ -1,0 +1,146 @@
+from __future__ import annotations
+
+import pandas as pd
+import plotly.express as px
+import streamlit as st
+
+from mock_data import PROFILE_LABELS, get_default_tickers, get_universe
+
+
+COLOR_SEQUENCE = ["#2563eb", "#16a34a", "#f97316", "#dc2626", "#7c3aed", "#0891b2", "#ca8a04", "#4b5563"]
+
+
+def configure_page(title: str) -> None:
+    st.set_page_config(page_title=f"Robby | {title}", page_icon="R", layout="wide")
+    css = "\n".join(
+        [
+            "<style>",
+            ".block-container { padding-top: 1.5rem; padding-bottom: 2rem; max-width: 1320px; }",
+            "[data-testid='stMetric'] { border: 1px solid #e5e7eb; border-radius: 8px; padding: 14px 16px; background: #ffffff; }",
+            "[data-testid='stSidebar'] { background: #f8fafc; }",
+            "[data-testid='stSidebar'] * { color: #111827; }",
+            "[data-testid='stSidebarNav'] a { color: #111827; }",
+            "[data-testid='stSidebarNav'] a:hover { background: #e0ecff; }",
+            "[data-testid='stSidebarNav'] a[aria-current='page'] { background: #dbeafe; color: #1d4ed8; font-weight: 700; }",
+            "h1, h2, h3 { letter-spacing: 0; }",
+            "@media (prefers-color-scheme: dark) {",
+            "  [data-testid='stMetric'] { border-color: #334155; background: #111827; }",
+            "  [data-testid='stSidebar'] { background: #0f172a; }",
+            "  [data-testid='stSidebar'] * { color: #e5e7eb; }",
+            "  [data-testid='stSidebarNav'] a { color: #e5e7eb; }",
+            "  [data-testid='stSidebarNav'] a:hover { background: #1e293b; }",
+            "  [data-testid='stSidebarNav'] a[aria-current='page'] { background: #1d4ed8; color: #ffffff; font-weight: 700; }",
+            "}",
+            "</style>",
+        ]
+    )
+    st.markdown(css, unsafe_allow_html=True)
+
+
+def render_sidebar() -> dict:
+    universe = get_universe()
+    st.sidebar.title("Robby")
+    risk_label = st.sidebar.radio("투자 성향", list(PROFILE_LABELS.values()), index=1)
+    risk_level = next(key for key, value in PROFILE_LABELS.items() if value == risk_label)
+    investment_amount = st.sidebar.number_input("투자 가능 금액", min_value=1_000_000, max_value=500_000_000, value=30_000_000, step=1_000_000)
+    selected = st.sidebar.multiselect(
+        "투자 대상",
+        universe["ticker"].tolist(),
+        default=get_default_tickers(),
+        format_func=lambda ticker: f"{universe.loc[universe['ticker'] == ticker, 'name'].iloc[0]} ({ticker})",
+    )
+    excluded = st.sidebar.multiselect(
+        "제외 종목",
+        selected,
+        default=[],
+        format_func=lambda ticker: f"{universe.loc[universe['ticker'] == ticker, 'name'].iloc[0]} ({ticker})",
+    )
+    if not selected:
+        st.sidebar.warning("투자 대상이 비어 있어 기본 유니버스를 사용합니다.")
+        selected = get_default_tickers()
+        excluded = []
+    if selected and len(excluded) == len(selected):
+        st.sidebar.warning("전체 종목을 제외할 수 없어 마지막 제외 항목을 해제합니다.")
+        excluded = excluded[:-1]
+    horizon = st.sidebar.selectbox("시뮬레이션 기간", ["6개월", "12개월", "24개월"], index=1)
+    return {
+        "risk_level": risk_level,
+        "risk_label": risk_label,
+        "investment_amount": int(investment_amount),
+        "selected_tickers": selected,
+        "excluded_tickers": excluded,
+        "horizon": horizon,
+    }
+
+
+def format_percent(value: float) -> str:
+    return f"{value * 100:.1f}%"
+
+
+def format_money(value: int | float) -> str:
+    return f"{int(value):,}원"
+
+
+def render_metric_row(metrics: dict) -> None:
+    cols = st.columns(4)
+    cols[0].metric("예상 수익률", format_percent(metrics["expected_return"]), "+2.8%p")
+    cols[1].metric("Sharpe", f"{metrics['sharpe_ratio']:.2f}", "+0.31")
+    cols[2].metric("MDD", format_percent(metrics["max_drawdown"]), "-3.4%p", delta_color="inverse")
+    cols[3].metric("변동성", format_percent(metrics["volatility"]), "-1.1%p", delta_color="inverse")
+
+
+def allocation_chart(weight_df: pd.DataFrame):
+    chart_df = weight_df.copy()
+    chart_df["표시명"] = chart_df["종목"] + " " + chart_df["티커"]
+    fig = px.pie(
+        chart_df,
+        values="비중",
+        names="표시명",
+        hole=0.45,
+        color_discrete_sequence=COLOR_SEQUENCE,
+    )
+    fig.update_traces(textposition="inside", texttemplate="%{label}<br>%{percent:.1%}")
+    fig.update_layout(margin=dict(l=10, r=10, t=20, b=10), legend_title_text="")
+    return fig
+
+
+def performance_chart(df: pd.DataFrame):
+    fig = px.line(
+        df,
+        x="날짜",
+        y=[column for column in df.columns if column != "날짜"],
+        markers=True,
+        color_discrete_sequence=COLOR_SEQUENCE,
+    )
+    fig.update_layout(
+        yaxis_title="기준가",
+        xaxis_title="",
+        legend_title_text="",
+        margin=dict(l=10, r=10, t=20, b=10),
+    )
+    return fig
+
+
+def simulation_chart(df: pd.DataFrame):
+    fig = px.line(
+        df,
+        x="날짜",
+        y="자산가치",
+        color="경로",
+        markers=True,
+        color_discrete_sequence=["#16a34a", "#2563eb", "#dc2626"],
+    )
+    fig.update_layout(
+        yaxis_title="자산가치 지수",
+        xaxis_title="",
+        legend_title_text="",
+        margin=dict(l=10, r=10, t=20, b=10),
+    )
+    return fig
+
+
+def percent_dataframe(df: pd.DataFrame, columns: list[str]) -> pd.DataFrame:
+    formatted = df.copy()
+    for column in columns:
+        formatted[column] = formatted[column].map(lambda value: f"{value * 100:.1f}%")
+    return formatted

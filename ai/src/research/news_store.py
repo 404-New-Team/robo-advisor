@@ -8,14 +8,21 @@ RiskDetector가 컨텍스트로 활용한다.
 import os
 from pathlib import Path
 
-import chromadb
-from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
+from .documents import normalize_articles, search_result_to_citation_item
 
 PERSIST_DIR = str(Path(__file__).parent.parent / ".cache" / "chromadb")
 
 
 class NewsStore:
-    def __init__(self, persist_dir: str = PERSIST_DIR):
+    def __init__(
+        self,
+        persist_dir: str = PERSIST_DIR,
+        collection_name: str = "financial_news",
+        embedding_function=None,
+    ):
+        import chromadb
+        from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
+
         host = os.environ.get("CHROMA_HOST")
         port = int(os.environ.get("CHROMA_PORT", 8000))
 
@@ -26,26 +33,32 @@ class NewsStore:
             # 로컬 모드 (기본값)
             self.client = chromadb.PersistentClient(path=persist_dir)
         self.collection = self.client.get_or_create_collection(
-            name="financial_news",
-            embedding_function=DefaultEmbeddingFunction(),
+            name=collection_name,
+            embedding_function=embedding_function or DefaultEmbeddingFunction(),
         )
 
     def add(self, articles: list[dict]) -> int:
         """기사 임베딩 후 저장. 이미 존재하는 ID는 건너뜀."""
+        documents = normalize_articles(articles)
         existing = set(self.collection.get(include=[])["ids"])
-        new = [a for a in articles if a["id"] not in existing]
+        new = [doc for doc in documents if doc.id not in existing]
         if not new:
             return 0
         self.collection.add(
-            ids=[a["id"] for a in new],
-            documents=[a["text"] for a in new],
+            ids=[doc.id for doc in new],
+            documents=[doc.to_chroma_document() for doc in new],
             metadatas=[
                 {
-                    "title":     a["title"],
-                    "source":    a["source"],
-                    "published": a["published"],
+                    "id":        doc.id,
+                    "title":     doc.title,
+                    "source":    doc.source,
+                    "published": doc.published,
+                    "url":       doc.url,
+                    "summary":   doc.summary,
+                    "provider":  doc.provider,
+                    "document_type": doc.document_type,
                 }
-                for a in new
+                for doc in new
             ],
         )
         return len(new)
@@ -58,13 +71,29 @@ class NewsStore:
         results = self.collection.query(
             query_texts=[query],
             n_results=min(n, total),
+            include=["documents", "metadatas", "distances"],
         )
-        return [
-            {"text": doc, "metadata": meta}
-            for doc, meta in zip(
-                results["documents"][0],
-                results["metadatas"][0],
+        documents = results.get("documents", [[]])[0]
+        metadatas = results.get("metadatas", [[]])[0]
+        distances = results.get("distances", [[]])[0]
+        items = []
+        for doc, meta, distance in zip(documents, metadatas, distances):
+            score = 1.0 / (1.0 + float(distance)) if distance is not None else 0.0
+            items.append(
+                search_result_to_citation_item(
+                    document=doc,
+                    metadata=meta,
+                    score=score,
+                    distance=float(distance) if distance is not None else None,
+                )
             )
+        return items
+
+    def citations(self, query: str, n: int = 5) -> list[dict]:
+        """Return source metadata for a query without losing the original URL."""
+        return [
+            {**item["metadata"], "score": item["score"]}
+            for item in self.search(query, n=n)
         ]
 
     def search_by_risk(self, n_per_type: int = 2) -> list[str]:

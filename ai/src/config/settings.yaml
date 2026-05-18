@@ -1,8 +1,11 @@
 environment:
-  tickers: ["AAPL", "MSFT", "GOOGL", "AMZN", "META"]
+  # 해외 ETF/주식 7개 (yfinance) + 국내 ETF 3개 (pykrx 6자리)
+  tickers: ["SPY", "QQQ", "GLD", "TLT", "EFA", "AAPL", "MSFT", "069500", "102110", "233740"]
   window_size: 20
   initial_balance: 1000000
-  transaction_cost: 0.001
+  transaction_cost: 0.00015
+  slippage: 0.0005
+  max_drawdown_threshold: 0.15
 
 risk:
   tag_names:
@@ -23,7 +26,10 @@ training:
   batch_size: 256
   learning_rate: 0.0003
 
+backtest:
+  risk_free_rate: 0.02
+
 research:
-  model: "claude-opus-4-7"
-  max_tokens: 1024
+  model: "claude-haiku-4-5-20251001"
+  max_tokens: 512
   news_lookback_days: 3
