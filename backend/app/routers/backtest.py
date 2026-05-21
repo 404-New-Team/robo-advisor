@@ -3,8 +3,10 @@ from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
+from app.auth import get_optional_user
 from app.database import get_db
 from app.models.portfolio import BacktestResult
+from app.models.user import User
 from app.schemas.backtest import BacktestResponse, BacktestMetrics, BenchmarkComparison, WalkForwardPeriod, BacktestPeriod
 from app.services.ai_client import AIServiceError, call_backtest
 
@@ -24,13 +26,14 @@ TODAY = str(date.today())
     },
 )
 async def run_backtest(
-    tickers: str = Query(..., description="콤마로 구분된 티커 목록 (예: 005930,SPY,GLD)"),
+    tickers: list[str] = Query(..., description="티커 목록 (예: ?tickers=005930&tickers=SPY&tickers=GLD)"),
     strategy: Literal["drl", "mvo", "equal_weight"] = Query(..., description="포트폴리오 전략"),
     start_date: str = Query(default=FIVE_YEARS_AGO, description="백테스트 시작일 (YYYY-MM-DD)"),
     end_date: str = Query(default=TODAY, description="백테스트 종료일 (YYYY-MM-DD)"),
     db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_user),
 ):
-    ticker_list = [t.strip() for t in tickers.split(",") if t.strip()]
+    ticker_list = [t.strip() for t in tickers if t.strip()]
     if not ticker_list:
         raise HTTPException(status_code=400, detail={"message": "tickers가 비어있습니다.", "detail": None})
 
@@ -44,6 +47,9 @@ async def run_backtest(
         ai_result = await call_backtest(payload)
     except AIServiceError as e:
         raise HTTPException(status_code=e.status_code, detail={"message": e.message, "detail": e.detail})
+
+    if ai_result.get("status") != "success":
+        raise HTTPException(status_code=502, detail={"message": "AI 서비스 오류", "detail": ai_result.get("message")})
 
     metrics_raw = ai_result.get("metrics", {})
     bench_raw = ai_result.get("benchmark_comparison", {})
@@ -69,6 +75,7 @@ async def run_backtest(
     ]
 
     record = BacktestResult(
+        user_id=current_user.id if current_user else None,
         tickers=",".join(ticker_list),
         strategy=strategy,
         start_date=start_date,

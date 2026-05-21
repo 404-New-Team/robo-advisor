@@ -34,7 +34,7 @@ def test_research_risk_events_structure(client):
         event = risk_events[0]
         assert "type" in event
         assert "severity" in event
-        assert event["severity"] in ("LOW", "MEDIUM", "HIGH")
+        assert event["severity"] in ("low", "moderate", "high")
 
 
 def test_research_reasoning_trace_present(client):
