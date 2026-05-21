@@ -4,7 +4,7 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-from mock_data import PROFILE_LABELS, get_default_tickers, get_universe
+from reference_data import PROFILE_LABELS, STRATEGY_LABELS, get_default_tickers, get_universe
 
 
 COLOR_SEQUENCE = ["#2563eb", "#16a34a", "#f97316", "#dc2626", "#7c3aed", "#0891b2", "#ca8a04", "#4b5563"]
@@ -63,14 +63,24 @@ def render_sidebar() -> dict:
         st.sidebar.warning("전체 종목을 제외할 수 없어 마지막 제외 항목을 해제합니다.")
         excluded = excluded[:-1]
     horizon = st.sidebar.selectbox("시뮬레이션 기간", ["6개월", "12개월", "24개월"], index=1)
+    active = [ticker for ticker in selected if ticker not in set(excluded)] or selected
     return {
         "risk_level": risk_level,
         "risk_label": risk_label,
         "investment_amount": int(investment_amount),
         "selected_tickers": selected,
         "excluded_tickers": excluded,
+        "active_tickers": active,
         "horizon": horizon,
     }
+
+
+def load_api_data(label: str, func, *args, **kwargs):
+    try:
+        return func(*args, **kwargs)
+    except Exception as error:
+        st.error(f"{label} API 호출 실패: {error}")
+        st.stop()
 
 
 def format_percent(value: float) -> str:
@@ -119,6 +129,47 @@ def performance_chart(df: pd.DataFrame):
         margin=dict(l=10, r=10, t=20, b=10),
     )
     return fig
+
+
+def walk_forward_performance_frame(results: list[dict]) -> pd.DataFrame:
+    rows_by_period = {}
+    for result in results:
+        strategy = result.get("strategy", "strategy")
+        label = STRATEGY_LABELS.get(strategy, strategy)
+        cumulative = 100.0
+        items = result.get("walk_forward_results", []) or [{"period": "N/A", "return": 0.0}]
+        for item in items:
+            cumulative *= 1 + float(item.get("return", 0.0))
+            period = item.get("period", "N/A")
+            rows_by_period.setdefault(period, {"날짜": period})
+            rows_by_period[period][label] = cumulative
+    return pd.DataFrame(rows_by_period.values())
+
+
+def strategy_comparison_from_results(results: list[dict]) -> pd.DataFrame:
+    rows = []
+    for result in results:
+        strategy = result.get("strategy", "")
+        metrics = result.get("metrics", {})
+        rows.append(
+            {
+                "전략": STRATEGY_LABELS.get(strategy, strategy),
+                "누적수익률": metrics.get("total_return", 0.0),
+                "Sharpe": metrics.get("sharpe_ratio", 0.0),
+                "MDD": metrics.get("max_drawdown", 0.0),
+                "승률": metrics.get("win_rate", 0.0),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def shap_summary_from_results(results: list[dict]) -> pd.DataFrame:
+    rows = []
+    for result in results:
+        asset = result.get("target_asset", "")
+        for feature, value in result.get("shap_values", {}).items():
+            rows.append({"종목": asset, "피처": feature, "기여도": value})
+    return pd.DataFrame(rows, columns=["종목", "피처", "기여도"])
 
 
 def simulation_chart(df: pd.DataFrame):

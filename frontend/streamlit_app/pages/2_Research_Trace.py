@@ -7,8 +7,8 @@ import streamlit as st
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from api_client import research
-from mock_data import get_default_tickers, get_universe
-from ui import configure_page, render_sidebar
+from reference_data import get_default_tickers, get_universe
+from ui import configure_page, load_api_data, render_sidebar
 
 
 configure_page("리서치 추론")
@@ -28,10 +28,10 @@ ticker = cols[0].selectbox(
 max_results = cols[1].slider("출처 수", min_value=3, max_value=10, value=5)
 submitted = cols[2].button("리서치 실행", type="primary", use_container_width=True)
 
-result = research(query, ticker=ticker, max_results=max_results)
+result = load_api_data("리서치", research, query, ticker=ticker, max_results=max_results)
 
 if submitted:
-    st.toast("mock 리서치 결과를 갱신했습니다.")
+    st.toast("백엔드 리서치 결과를 갱신했습니다.")
 
 st.subheader("요약")
 st.write(result["summary"])
@@ -39,7 +39,7 @@ st.write(result["summary"])
 left, right = st.columns([1, 1])
 with left:
     st.subheader("리스크 이벤트")
-    risk_df = pd.DataFrame(result["risk_events"])
+    risk_df = pd.DataFrame(result["risk_events"], columns=["type", "description", "severity", "detected_at"])
     st.dataframe(risk_df, use_container_width=True, hide_index=True)
 with right:
     st.subheader("자체 검증")
@@ -48,7 +48,7 @@ with right:
         st.info(step)
 
 st.subheader("출처")
-source_df = pd.DataFrame(result["sources"])
+source_df = pd.DataFrame(result["sources"], columns=["title", "url", "published_at", "relevance_score"])
 st.dataframe(
     source_df,
     use_container_width=True,
