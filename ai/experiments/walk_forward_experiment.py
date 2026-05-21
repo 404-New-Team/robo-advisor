@@ -8,6 +8,7 @@ Walk-Forward 백테스트 실행 스크립트.
 
 import json
 import sys
+from datetime import date
 from pathlib import Path
 
 import numpy as np
@@ -40,7 +41,7 @@ def main():
     prices = fetch_prices(
         tickers=env_cfg["tickers"],
         start="2019-01-01",
-        end="2024-12-31",
+        end=date.today().isoformat(),
     )
     print(f"데이터 shape: {prices.shape}  기간: {prices.index[0].date()} ~ {prices.index[-1].date()}")
 
