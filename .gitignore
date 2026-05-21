@@ -11,6 +11,7 @@ venv/
 ai/rl_engine/checkpoints/
 *.pkl
 *.zip
+!ai/checkpoints/*.zip
 mlruns/
 
 # 벡터 DB

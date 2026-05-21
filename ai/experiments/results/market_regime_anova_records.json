@@ -1,0 +1,128 @@
+[
+  {
+    "strategy": "EqualWeight",
+    "regime": "Bull",
+    "cagr": 0.17284346709808363,
+    "fold": 0
+  },
+  {
+    "strategy": "MVO",
+    "regime": "Bull",
+    "cagr": -0.0039695493585265584,
+    "fold": 0
+  },
+  {
+    "strategy": "DRL",
+    "regime": "Bull",
+    "cagr": 0.2383392466708476,
+    "fold": 0
+  },
+  {
+    "strategy": "EqualWeight",
+    "regime": "Bull",
+    "cagr": 0.15006266501484555,
+    "fold": 1
+  },
+  {
+    "strategy": "MVO",
+    "regime": "Bull",
+    "cagr": 0.15011614468141543,
+    "fold": 1
+  },
+  {
+    "strategy": "DRL",
+    "regime": "Bull",
+    "cagr": 0.0927863028581859,
+    "fold": 1
+  },
+  {
+    "strategy": "EqualWeight",
+    "regime": "Bear",
+    "cagr": -0.43862208111603185,
+    "fold": 2
+  },
+  {
+    "strategy": "MVO",
+    "regime": "Bear",
+    "cagr": -0.40365401543821655,
+    "fold": 2
+  },
+  {
+    "strategy": "DRL",
+    "regime": "Bear",
+    "cagr": -0.19434509601204109,
+    "fold": 2
+  },
+  {
+    "strategy": "EqualWeight",
+    "regime": "Sideways",
+    "cagr": -0.09248387953488058,
+    "fold": 3
+  },
+  {
+    "strategy": "MVO",
+    "regime": "Sideways",
+    "cagr": -0.11036969188285362,
+    "fold": 3
+  },
+  {
+    "strategy": "DRL",
+    "regime": "Sideways",
+    "cagr": -0.1320150130181047,
+    "fold": 3
+  },
+  {
+    "strategy": "EqualWeight",
+    "regime": "Bull",
+    "cagr": 0.7042828802961765,
+    "fold": 4
+  },
+  {
+    "strategy": "MVO",
+    "regime": "Bull",
+    "cagr": 1.1543332195022225,
+    "fold": 4
+  },
+  {
+    "strategy": "DRL",
+    "regime": "Bull",
+    "cagr": 0.34468466342937676,
+    "fold": 4
+  },
+  {
+    "strategy": "EqualWeight",
+    "regime": "Bull",
+    "cagr": 0.1229512560066719,
+    "fold": 5
+  },
+  {
+    "strategy": "MVO",
+    "regime": "Bull",
+    "cagr": -0.012883327095351338,
+    "fold": 5
+  },
+  {
+    "strategy": "DRL",
+    "regime": "Bull",
+    "cagr": 0.11781776044175118,
+    "fold": 5
+  },
+  {
+    "strategy": "EqualWeight",
+    "regime": "Bull",
+    "cagr": 0.23220333111284197,
+    "fold": 6
+  },
+  {
+    "strategy": "MVO",
+    "regime": "Bull",
+    "cagr": 0.37875375240535214,
+    "fold": 6
+  },
+  {
+    "strategy": "DRL",
+    "regime": "Bull",
+    "cagr": 0.0973366368953017,
+    "fold": 6
+  }
+]

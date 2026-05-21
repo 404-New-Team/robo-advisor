@@ -1,0 +1,88 @@
+{
+  "f_strategy": 0.1206,
+  "p_strategy": 0.887419,
+  "sig_strategy": false,
+  "eta_sq_partial_strategy": 0.0197,
+  "f_regime": 5.4566,
+  "p_regime": 0.020634,
+  "sig_regime": true,
+  "eta_sq_partial_regime": 0.4763,
+  "f_interaction": 0.1774,
+  "p_interaction": 0.945767,
+  "sig_interaction": false,
+  "eta_sq_partial_interaction": 0.0558,
+  "cell_means": {
+    "('DRL', 'Bear')": -0.19434509601204109,
+    "('DRL', 'Bull')": 0.17819292205909262,
+    "('DRL', 'Sideways')": -0.1320150130181047,
+    "('EqualWeight', 'Bear')": -0.43862208111603185,
+    "('EqualWeight', 'Bull')": 0.2764687199057239,
+    "('EqualWeight', 'Sideways')": -0.09248387953488058,
+    "('MVO', 'Bear')": -0.40365401543821655,
+    "('MVO', 'Bull')": 0.3332700480270224,
+    "('MVO', 'Sideways')": -0.11036969188285362
+  },
+  "cell_ns": {
+    "('DRL', 'Bear')": 1,
+    "('DRL', 'Bull')": 5,
+    "('DRL', 'Sideways')": 1,
+    "('EqualWeight', 'Bear')": 1,
+    "('EqualWeight', 'Bull')": 5,
+    "('EqualWeight', 'Sideways')": 1,
+    "('MVO', 'Bear')": 1,
+    "('MVO', 'Bull')": 5,
+    "('MVO', 'Sideways')": 1
+  },
+  "regime_counts": {
+    "Bear": 1,
+    "Bull": 5,
+    "Sideways": 1
+  },
+  "regime_means": {
+    "Bear": -0.3455403975220965,
+    "Bull": 0.2626438966639463,
+    "Sideways": -0.11162286147861296
+  },
+  "strategy_means": {
+    "DRL": 0.08065778589504534,
+    "EqualWeight": 0.12160537698252959,
+    "MVO": 0.1646180761162917
+  },
+  "alpha": 0.05,
+  "metric_used": "fold_cagr",
+  "n_obs": 21,
+  "anova_table": [
+    {
+      "source": "C(strategy)",
+      "SS": 0.024678,
+      "df": 2,
+      "MS": 0.012339,
+      "F": 0.1206,
+      "p": 0.887419
+    },
+    {
+      "source": "C(regime)",
+      "SS": 1.11623,
+      "df": 2,
+      "MS": 0.558115,
+      "F": 5.4566,
+      "p": 0.020634
+    },
+    {
+      "source": "C(strategy):C(regime)",
+      "SS": 0.072563,
+      "df": 4,
+      "MS": 0.018141,
+      "F": 0.1774,
+      "p": 0.945767
+    },
+    {
+      "source": "Residual",
+      "SS": 1.227395,
+      "df": 12,
+      "MS": 0.102283,
+      "F": NaN,
+      "p": NaN
+    }
+  ]
+}
