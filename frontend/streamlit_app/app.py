@@ -1,8 +1,8 @@
 import streamlit as st
 
-from api_client import backtest, health, optimize_portfolio, research
+from api_client import allocation, backtest, health, optimize_portfolio, research
 from reference_data import get_weight_table
-from ui import allocation_chart, configure_page, load_api_data, performance_chart, render_metric_row, render_sidebar, walk_forward_performance_frame
+from ui import allocation_chart, configure_page, load_api_data, performance_chart, render_allocation_table, render_metric_row, render_sidebar, walk_forward_performance_frame
 
 
 configure_page("통합 대시보드")
@@ -19,6 +19,13 @@ optimize_result = load_api_data(
 )
 research_result = load_api_data("리서치", research, "현재 포트폴리오 리스크 요약", max_results=3, token=state["access_token"])
 backtest_result = load_api_data("백테스트", backtest, state["active_tickers"], "drl", token=state["access_token"])
+allocation_result = load_api_data(
+    "주문 수량 계산",
+    allocation,
+    weights=optimize_result["weights"],
+    total_amount=state["investment_amount"],
+    token=state["access_token"],
+)
 weight_df = get_weight_table(optimize_result["weights"])
 
 st.title("Robby 통합 관제 대시보드")
@@ -53,6 +60,10 @@ with tab_summary:
     metric_cols[1].metric("Sortino", f"{metrics['sortino_ratio']:.2f}")
     metric_cols[2].metric("Calmar", f"{metrics['calmar_ratio']:.2f}")
     metric_cols[3].metric("승률", f"{metrics['win_rate'] * 100:.1f}%")
+
+    st.divider()
+    st.subheader("주문 수량 계산")
+    render_allocation_table(allocation_result)
 
 with tab_research:
     st.write(research_result["summary"])
