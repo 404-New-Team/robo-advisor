@@ -1,19 +1,37 @@
-gymnasium>=0.29.0
-chromadb>=0.5.0
-feedparser>=6.0.0
-stable-baselines3>=2.3.0
-numpy>=1.24.0
-pandas>=2.0.0
-anthropic>=0.40.0
-yfinance>=0.2.40
-pykrx>=1.0.47
-shap>=0.45.0
-scipy>=1.11.0
-pyyaml>=6.0
-torch>=2.2.0
-matplotlib>=3.7.0
-pyarrow>=14.0.0
-langgraph>=0.2.0
-pytest>=9.0.0
-fastapi>=0.115.0
-uvicorn[standard]>=0.32.0
+# ── 강화학습 / ML ──────────────────────────────────────────────────────────────
+gymnasium==1.2.3
+stable-baselines3==2.8.0
+torch==2.11.0
+numpy==2.4.4
+scipy==1.17.1
+scikit-learn==1.8.0
+shap==0.51.0
+
+# ── 데이터 / 시장 데이터 ────────────────────────────────────────────────────────
+pandas==2.3.3
+pyarrow==24.0.0
+yfinance==1.3.0
+pykrx==1.2.8
+
+# ── LLM / RAG ──────────────────────────────────────────────────────────────────
+anthropic==0.100.0
+langgraph==1.1.10
+langchain-core==1.3.3
+chromadb==1.5.9
+feedparser==6.0.12
+beautifulsoup4==4.14.3
+
+# ── API 서버 ───────────────────────────────────────────────────────────────────
+fastapi==0.136.1
+uvicorn[standard]==0.46.0
+pydantic==2.13.4
+pydantic-settings==2.14.0
+
+# ── 유틸리티 ───────────────────────────────────────────────────────────────────
+matplotlib==3.10.9
+PyYAML==6.0.3
+python-dotenv==1.2.2
+requests==2.33.1
+
+# ── 테스트 ─────────────────────────────────────────────────────────────────────
+pytest==9.0.3

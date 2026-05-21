@@ -219,4 +219,8 @@ __marimo__/
 
 # RL 모델 체크포인트 & 캐시
 checkpoints/
-ai/.cache/
+.cache/
+
+# 실험 결과
+experiments/results/
+.pytest_tmp/

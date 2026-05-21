@@ -58,6 +58,7 @@ ai/
 │   ├── market_regime_anova_experiment.py
 │   └── results/
 ├── src/
+│   ├── api/            ← FastAPI 서버 (main.py)
 │   ├── agents/
 │   ├── backtest/
 │   ├── config/
@@ -81,11 +82,69 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
+`requirements.txt`는 실제 검증된 버전으로 고정되어 있습니다. 주요 패키지:
+
+```
+gymnasium==1.2.3  stable-baselines3==2.8.0  torch==2.11.0
+shap==0.51.0      langgraph==1.1.10          fastapi==0.136.1
+```
+
 리서치 에이전트에서 Claude API를 사용할 경우 환경 변수를 설정합니다. RL 학습, 백테스트, MVO, SHAP, ANOVA 실험만 실행할 때는 필수는 아닙니다.
 
 ```powershell
 $env:ANTHROPIC_API_KEY="sk-ant-..."
 ```
+
+## API 서버
+
+FastAPI 서버는 포트 8001에서 실행됩니다. PPO 체크포인트와 Research Agent는 서버 시작 시 자동으로 로딩됩니다.
+
+### 로컬 실행
+
+```powershell
+cd ai
+.venv\Scripts\python.exe -m uvicorn src.api.main:app --port 8001
+```
+
+### 엔드포인트
+
+| Method | Path | 기능 |
+| --- | --- | --- |
+| GET | /health | 서버 상태 및 모델 로드 여부 |
+| POST | /ai/optimize | PPO 포트폴리오 최적화 (MVO 폴백) |
+| POST | /ai/shap | SHAP 의사결정 해석 + Force/Summary Plot |
+| POST | /ai/research | AgenticRAG 뉴스 분석 |
+| POST | /ai/backtest | Walk-Forward 백테스트 (drl / mvo / equal_weight) |
+
+### 요청 예시
+
+```powershell
+# 포트폴리오 최적화
+Invoke-RestMethod -Uri http://localhost:8001/ai/optimize -Method Post `
+  -ContentType "application/json" `
+  -Body '{"tickers":["SPY","QQQ","GLD"],"risk_level":"moderate","start_date":"2022-01-01","end_date":"2026-05-01"}'
+
+# SHAP 해석
+Invoke-RestMethod -Uri http://localhost:8001/ai/shap -Method Post `
+  -ContentType "application/json" `
+  -Body '{"tickers":["SPY","QQQ","GLD"],"target_asset":"SPY","date":"2026-01-02"}'
+
+# 백테스트 (mvo 전략)
+Invoke-RestMethod -Uri http://localhost:8001/ai/backtest -Method Post `
+  -ContentType "application/json" `
+  -Body '{"tickers":["SPY","QQQ","GLD"],"strategy":"mvo","start_date":"2021-01-01","end_date":"2026-05-01"}'
+```
+
+### 타임아웃 정책
+
+| 엔드포인트 | 타임아웃 | 비고 |
+| --- | ---: | --- |
+| /ai/optimize | 4s | 캐시 히트 시 ~26ms |
+| /ai/shap | 10s | KernelExplainer nsamples=50 |
+| /ai/research | 25s | LLM 호출 포함 |
+| /ai/backtest | 60s | Walk-Forward 훈련 포함 |
+
+PPO 관측 공간이 현재 티커 수와 맞지 않으면 자동으로 MVO 폴백이 적용됩니다 (기학습 모델은 10개 자산 기준 obs=125).
 
 ## Docker 실행
 
