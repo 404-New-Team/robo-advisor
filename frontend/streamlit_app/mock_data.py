@@ -4,49 +4,16 @@ from datetime import datetime, timedelta, timezone
 
 import pandas as pd
 
-
-ASSET_UNIVERSE = [
-    {"ticker": "005930", "name": "삼성전자", "sector": "반도체", "region": "KR"},
-    {"ticker": "000660", "name": "SK하이닉스", "sector": "반도체", "region": "KR"},
-    {"ticker": "035420", "name": "NAVER", "sector": "인터넷", "region": "KR"},
-    {"ticker": "035720", "name": "카카오", "sector": "인터넷", "region": "KR"},
-    {"ticker": "051910", "name": "LG화학", "sector": "2차전지", "region": "KR"},
-    {"ticker": "006400", "name": "삼성SDI", "sector": "2차전지", "region": "KR"},
-    {"ticker": "005380", "name": "현대차", "sector": "자동차", "region": "KR"},
-    {"ticker": "000270", "name": "기아", "sector": "자동차", "region": "KR"},
-    {"ticker": "068270", "name": "셀트리온", "sector": "바이오", "region": "KR"},
-    {"ticker": "207940", "name": "삼성바이오로직스", "sector": "바이오", "region": "KR"},
-]
-
-PROFILE_LABELS = {
-    "low": "안정형",
-    "moderate": "위험중립형",
-    "high": "공격투자형",
-}
-
-STRATEGY_LABELS = {
-    "drl": "DRL 로보어드바이저",
-    "mvo": "MVO 평균-분산",
-    "equal_weight": "동일가중",
-}
-
-
-def get_universe() -> pd.DataFrame:
-    return pd.DataFrame(ASSET_UNIVERSE)
-
-
-def get_default_tickers() -> list[str]:
-    return [asset["ticker"] for asset in ASSET_UNIVERSE]
-
-
-def get_asset_name(ticker: str) -> str:
-    match = next((asset for asset in ASSET_UNIVERSE if asset["ticker"] == ticker), None)
-    return match["name"] if match else ticker
-
-
-def get_asset_label(ticker: str) -> str:
-    name = get_asset_name(ticker)
-    return f"{name} ({ticker})"
+from reference_data import (
+    PROFILE_LABELS,
+    STRATEGY_LABELS,
+    get_asset_label,
+    get_asset_name,
+    get_default_tickers,
+    get_order_preview,
+    get_universe,
+    get_weight_table,
+)
 
 
 def _normalize(weights: dict[str, float]) -> dict[str, float]:
@@ -150,36 +117,6 @@ def get_optimize_response(
         ],
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
-
-
-def get_weight_table(weights: dict[str, float]) -> pd.DataFrame:
-    rows = []
-    universe = get_universe().set_index("ticker")
-    for ticker, weight in weights.items():
-        asset = universe.loc[ticker].to_dict()
-        rows.append(
-            {
-                "티커": ticker,
-                "종목": asset["name"],
-                "섹터": asset["sector"],
-                "비중": weight,
-            }
-        )
-    return pd.DataFrame(rows).sort_values("비중", ascending=False)
-
-
-def get_order_preview(weights: dict[str, float], investment_amount: int) -> pd.DataFrame:
-    rows = []
-    for ticker, weight in weights.items():
-        rows.append(
-            {
-                "종목": get_asset_name(ticker),
-                "티커": ticker,
-                "목표 비중": weight,
-                "매수 금액": int(investment_amount * weight),
-            }
-        )
-    return pd.DataFrame(rows).sort_values("목표 비중", ascending=False)
 
 
 def get_performance_series() -> pd.DataFrame:

@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
-from typing import Literal
-from pydantic import BaseModel, Field
+from typing import Any, Literal
+from pydantic import BaseModel, Field, field_validator
 
 
 class ResearchRequest(BaseModel):
@@ -14,6 +14,14 @@ class RiskEvent(BaseModel):
     description: str
     severity: Literal["low", "moderate", "high"]
     detected_at: str
+
+    @field_validator("severity", mode="before")
+    @classmethod
+    def normalize_severity(cls, value: Any) -> Any:
+        if not isinstance(value, str):
+            return value
+        normalized = value.strip().lower()
+        return {"medium": "moderate"}.get(normalized, normalized)
 
 
 class NewsSource(BaseModel):
