@@ -1,5 +1,5 @@
 from datetime import date, datetime, timezone
-from typing import Literal
+from typing import Any, Literal
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -35,6 +35,14 @@ class RiskTag(BaseModel):
     type: str
     severity: Literal["low", "moderate", "high"]
     source: str
+
+    @field_validator("severity", mode="before")
+    @classmethod
+    def normalize_severity(cls, value: Any) -> Any:
+        if not isinstance(value, str):
+            return value
+        normalized = value.strip().lower()
+        return {"medium": "moderate"}.get(normalized, normalized)
 
 
 class OptimizeResponse(BaseModel):

@@ -8,8 +8,8 @@ import streamlit as st
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from api_client import explain
-from mock_data import get_default_tickers, get_shap_summary, get_universe
-from ui import COLOR_SEQUENCE, configure_page, format_percent, render_sidebar
+from reference_data import get_default_tickers, get_universe
+from ui import COLOR_SEQUENCE, configure_page, format_percent, load_api_data, render_sidebar, shap_summary_from_results
 
 
 configure_page("SHAP 해석")
@@ -21,12 +21,13 @@ st.title("SHAP 의사결정 해석")
 
 target = st.selectbox(
     "해석 대상",
-    state["selected_tickers"] or get_default_tickers(),
+    state["active_tickers"] or get_default_tickers(),
     format_func=lambda ticker: f"{universe.loc[universe['ticker'] == ticker, 'name'].iloc[0]} ({ticker})",
 )
-result = explain(state["selected_tickers"], target)
+result = load_api_data("SHAP 해석", explain, state["active_tickers"], target, token=state["access_token"])
 shap_df = pd.DataFrame(
-    [{"피처": key, "기여도": value, "방향": "확대" if value >= 0 else "축소"} for key, value in result["shap_values"].items()]
+    [{"피처": key, "기여도": value, "방향": "확대" if value >= 0 else "축소"} for key, value in result["shap_values"].items()],
+    columns=["피처", "기여도", "방향"],
 ).sort_values("기여도")
 
 cols = st.columns(3)
@@ -48,10 +49,14 @@ with left:
         color_discrete_map={"확대": "#2563eb", "축소": "#dc2626"},
     )
     fig.update_layout(xaxis_title="SHAP value", yaxis_title="", legend_title_text="", margin=dict(l=10, r=10, t=20, b=10))
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, key="shap_feature_chart")
 with right:
     st.subheader("전체 종목 중요도")
-    summary_df = get_shap_summary()
+    summary_results = [
+        load_api_data("SHAP 요약", explain, state["active_tickers"], ticker, token=state["access_token"])
+        for ticker in (state["active_tickers"] or get_default_tickers())[:6]
+    ]
+    summary_df = shap_summary_from_results(summary_results)
     summary_fig = px.scatter(
         summary_df,
         x="기여도",
@@ -61,7 +66,7 @@ with right:
         color_discrete_sequence=COLOR_SEQUENCE,
     )
     summary_fig.update_layout(xaxis_title="기여도", yaxis_title="", legend_title_text="", margin=dict(l=10, r=10, t=20, b=10))
-    st.plotly_chart(summary_fig, use_container_width=True)
+    st.plotly_chart(summary_fig, use_container_width=True, key="shap_summary_chart")
 
 st.subheader("원본 값")
 st.dataframe(shap_df, use_container_width=True, hide_index=True)

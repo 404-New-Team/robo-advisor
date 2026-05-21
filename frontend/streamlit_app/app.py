@@ -1,21 +1,24 @@
 import streamlit as st
 
 from api_client import backtest, health, optimize_portfolio, research
-from mock_data import get_performance_series, get_simulation_paths, get_weight_table
-from ui import allocation_chart, configure_page, performance_chart, render_metric_row, render_sidebar, simulation_chart
+from reference_data import get_weight_table
+from ui import allocation_chart, configure_page, load_api_data, performance_chart, render_metric_row, render_sidebar, walk_forward_performance_frame
 
 
 configure_page("통합 대시보드")
 
 state = render_sidebar()
-health_state = health()
-optimize_result = optimize_portfolio(
+health_state = load_api_data("상태 확인", health)
+optimize_result = load_api_data(
+    "포트폴리오 최적화",
+    optimize_portfolio,
     risk_level=state["risk_level"],
     tickers=state["selected_tickers"],
     excluded=state["excluded_tickers"],
+    token=state["access_token"],
 )
-research_result = research("현재 포트폴리오 리스크 요약", max_results=3)
-backtest_result = backtest(state["selected_tickers"], "drl")
+research_result = load_api_data("리서치", research, "현재 포트폴리오 리스크 요약", max_results=3, token=state["access_token"])
+backtest_result = load_api_data("백테스트", backtest, state["active_tickers"], "drl", token=state["access_token"])
 weight_df = get_weight_table(optimize_result["weights"])
 
 st.title("Robby 통합 관제 대시보드")
@@ -26,10 +29,14 @@ render_metric_row(optimize_result["metrics"])
 left, right = st.columns([1.05, 1])
 with left:
     st.subheader("추천 포트폴리오")
-    st.plotly_chart(allocation_chart(weight_df), use_container_width=True)
+    st.plotly_chart(allocation_chart(weight_df), use_container_width=True, key="dashboard_allocation_chart")
 with right:
-    st.subheader("전략 성과")
-    st.plotly_chart(performance_chart(get_performance_series()), use_container_width=True)
+    st.subheader("Walk-Forward 성과")
+    st.plotly_chart(
+        performance_chart(walk_forward_performance_frame([backtest_result])),
+        use_container_width=True,
+        key="dashboard_walk_forward_chart",
+    )
 
 tab_summary, tab_research, tab_simulation = st.tabs(["포트폴리오", "리서치 근거", "시뮬레이션"])
 
@@ -53,4 +60,9 @@ with tab_research:
         st.text(f"{index}. {step}")
 
 with tab_simulation:
-    st.plotly_chart(simulation_chart(get_simulation_paths()), use_container_width=True)
+    st.info("미래 경로 시뮬레이션 API가 아직 없어 백테스트 Walk-Forward 결과를 표시합니다.")
+    st.plotly_chart(
+        performance_chart(walk_forward_performance_frame([backtest_result])),
+        use_container_width=True,
+        key="dashboard_simulation_walk_forward_chart",
+    )

@@ -6,19 +6,23 @@ import streamlit as st
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from api_client import optimize_portfolio
-from mock_data import get_order_preview, get_simulation_paths, get_weight_table
-from ui import allocation_chart, configure_page, format_money, render_metric_row, render_sidebar, simulation_chart
+from api_client import backtest, optimize_portfolio
+from reference_data import get_order_preview, get_weight_table
+from ui import allocation_chart, configure_page, format_money, load_api_data, performance_chart, render_metric_row, render_sidebar, walk_forward_performance_frame
 
 
 configure_page("포트폴리오")
 
 state = render_sidebar()
-result = optimize_portfolio(
+result = load_api_data(
+    "포트폴리오 최적화",
+    optimize_portfolio,
     risk_level=state["risk_level"],
     tickers=state["selected_tickers"],
     excluded=state["excluded_tickers"],
+    token=state["access_token"],
 )
+backtest_result = load_api_data("백테스트", backtest, state["active_tickers"], "drl", token=state["access_token"])
 weights = result["weights"]
 weight_df = get_weight_table(weights)
 
@@ -30,7 +34,7 @@ render_metric_row(result["metrics"])
 left, right = st.columns([1, 1.15])
 with left:
     st.subheader("추천 비중")
-    st.plotly_chart(allocation_chart(weight_df), use_container_width=True)
+    st.plotly_chart(allocation_chart(weight_df), use_container_width=True, key="portfolio_allocation_chart")
 with right:
     st.subheader("세부 조정")
     editor_df = weight_df[["티커", "종목", "섹터", "비중"]].copy()
@@ -67,8 +71,13 @@ st.dataframe(
     },
 )
 
-st.subheader("조정 후 자산 가치 시뮬레이션")
-st.plotly_chart(simulation_chart(get_simulation_paths()), use_container_width=True)
+st.subheader("Walk-Forward 성과")
+st.info("조정 후 미래 경로 API가 아직 없어 현재 선택 자산의 백테스트 결과를 표시합니다.")
+st.plotly_chart(
+    performance_chart(walk_forward_performance_frame([backtest_result])),
+    use_container_width=True,
+    key="portfolio_walk_forward_chart",
+)
 
 comparison_df = pd.DataFrame(
     [
