@@ -7,7 +7,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 import os
 
 from app.config import settings
-from app.routers import health, optimize, explain, research, backtest, auth, users
+from app.routers import health, optimize, explain, research, backtest, auth, users, allocation
 
 
 @asynccontextmanager
@@ -43,6 +43,7 @@ app.include_router(research.router)
 app.include_router(backtest.router)
 app.include_router(auth.router)
 app.include_router(users.router)
+app.include_router(allocation.router)
 
 
 @app.exception_handler(StarletteHTTPException)
