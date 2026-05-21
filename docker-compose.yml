@@ -65,7 +65,7 @@ services:
       MYSQL_PASSWORD: robopassword
       MYSQL_DB: roboadvisor
       AI_SERVICE_URL: http://ai:8001
-      AI_TIMEOUT: "5.0"
+      AI_TIMEOUT: "30.0"
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change-me-in-production}
       JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
       JWT_EXPIRE_MINUTES: ${JWT_EXPIRE_MINUTES:-1440}
