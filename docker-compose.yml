@@ -9,7 +9,7 @@ services:
       MYSQL_USER: robo
       MYSQL_PASSWORD: robopassword
     ports:
-      - "3306:3306"
+      - "3307:3306"
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:
@@ -57,7 +57,7 @@ services:
     container_name: robo_backend
     restart: unless-stopped
     ports:
-      - "8000:8000"
+      - "8080:8000"
     environment:
       MYSQL_HOST: mysql
       MYSQL_PORT: 3306
