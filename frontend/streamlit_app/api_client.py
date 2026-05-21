@@ -145,7 +145,7 @@ def backtest(tickers: list[str], strategy: str, token: str | None = None) -> dic
         from mock_data import get_backtest_response
 
         return get_backtest_response(strategy=strategy)
-    params = {"tickers": ",".join(tickers), "strategy": strategy}
+    params = {"tickers": tickers, "strategy": strategy}
     return _request("GET", "/backtest", token=token, params=params)
 
 
