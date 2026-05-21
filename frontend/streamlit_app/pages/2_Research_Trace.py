@@ -28,7 +28,7 @@ ticker = cols[0].selectbox(
 max_results = cols[1].slider("출처 수", min_value=3, max_value=10, value=5)
 submitted = cols[2].button("리서치 실행", type="primary", use_container_width=True)
 
-result = load_api_data("리서치", research, query, ticker=ticker, max_results=max_results)
+result = load_api_data("리서치", research, query, ticker=ticker, max_results=max_results, token=state["access_token"])
 
 if submitted:
     st.toast("백엔드 리서치 결과를 갱신했습니다.")

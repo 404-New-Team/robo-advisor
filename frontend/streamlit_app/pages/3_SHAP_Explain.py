@@ -24,7 +24,7 @@ target = st.selectbox(
     state["active_tickers"] or get_default_tickers(),
     format_func=lambda ticker: f"{universe.loc[universe['ticker'] == ticker, 'name'].iloc[0]} ({ticker})",
 )
-result = load_api_data("SHAP 해석", explain, state["active_tickers"], target)
+result = load_api_data("SHAP 해석", explain, state["active_tickers"], target, token=state["access_token"])
 shap_df = pd.DataFrame(
     [{"피처": key, "기여도": value, "방향": "확대" if value >= 0 else "축소"} for key, value in result["shap_values"].items()],
     columns=["피처", "기여도", "방향"],
@@ -53,7 +53,7 @@ with left:
 with right:
     st.subheader("전체 종목 중요도")
     summary_results = [
-        load_api_data("SHAP 요약", explain, state["active_tickers"], ticker)
+        load_api_data("SHAP 요약", explain, state["active_tickers"], ticker, token=state["access_token"])
         for ticker in (state["active_tickers"] or get_default_tickers())[:6]
     ]
     summary_df = shap_summary_from_results(summary_results)

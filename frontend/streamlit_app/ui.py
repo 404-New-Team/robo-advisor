@@ -4,7 +4,8 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-from reference_data import PROFILE_LABELS, STRATEGY_LABELS, get_default_tickers, get_universe
+from api_client import add_user_ticker, delete_user_ticker, get_user_tickers, login, me, register
+from reference_data import PROFILE_LABELS, STRATEGY_LABELS, get_asset_label, get_default_tickers, get_universe
 
 
 COLOR_SEQUENCE = ["#2563eb", "#16a34a", "#f97316", "#dc2626", "#7c3aed", "#0891b2", "#ca8a04", "#4b5563"]
@@ -37,23 +38,120 @@ def configure_page(title: str) -> None:
     st.markdown(css, unsafe_allow_html=True)
 
 
+def _clear_auth_state() -> None:
+    for key in ["access_token", "auth_user", "saved_tickers", "saved_tickers_loaded_for"]:
+        st.session_state.pop(key, None)
+
+
+def _load_current_user(token: str) -> dict | None:
+    if st.session_state.get("auth_user"):
+        return st.session_state["auth_user"]
+    try:
+        user = me(token)
+    except Exception as error:
+        _clear_auth_state()
+        st.sidebar.error(f"로그인 세션 확인 실패: {error}")
+        return None
+    st.session_state["auth_user"] = user
+    return user
+
+
+def _load_saved_tickers(token: str | None) -> list[str]:
+    if not token:
+        return []
+    if st.session_state.get("saved_tickers_loaded_for") == token:
+        return st.session_state.get("saved_tickers", [])
+    try:
+        tickers = get_user_tickers(token).get("tickers", [])
+    except Exception as error:
+        st.sidebar.warning(f"저장 종목 조회 실패: {error}")
+        tickers = []
+    st.session_state["saved_tickers"] = tickers
+    st.session_state["saved_tickers_loaded_for"] = token
+    return tickers
+
+
+def _sync_saved_tickers(token: str, selected: list[str]) -> None:
+    current = set(_load_saved_tickers(token))
+    desired = set(selected)
+    for ticker in desired - current:
+        add_user_ticker(token, ticker)
+    for ticker in current - desired:
+        delete_user_ticker(token, ticker)
+    st.session_state["saved_tickers"] = selected
+    st.session_state["saved_tickers_loaded_for"] = token
+
+
+def render_auth_panel() -> tuple[str | None, list[str]]:
+    st.sidebar.subheader("계정")
+    token = st.session_state.get("access_token")
+    if token:
+        user = _load_current_user(token)
+        if user:
+            st.sidebar.caption(f"{user.get('username', '')} · {user.get('email', '')}")
+            if st.sidebar.button("로그아웃", use_container_width=True, key="auth_logout"):
+                _clear_auth_state()
+                st.rerun()
+            return token, _load_saved_tickers(token)
+        return None, []
+
+    email = st.sidebar.text_input("이메일", key="auth_login_email")
+    password = st.sidebar.text_input("비밀번호", type="password", key="auth_login_password")
+    if st.sidebar.button("로그인", use_container_width=True, key="auth_login_submit"):
+        try:
+            token_data = login(email, password)
+            token = token_data["access_token"]
+            st.session_state["access_token"] = token
+            st.session_state["auth_user"] = me(token)
+            st.sidebar.success("로그인했습니다.")
+            st.rerun()
+        except Exception as error:
+            st.sidebar.error(f"로그인 실패: {error}")
+
+    with st.sidebar.expander("회원가입"):
+        reg_email = st.text_input("회원 이메일", key="auth_register_email")
+        reg_username = st.text_input("이름", key="auth_register_username")
+        reg_password = st.text_input("회원 비밀번호", type="password", key="auth_register_password")
+        if st.button("가입 후 로그인", use_container_width=True, key="auth_register_submit"):
+            try:
+                register(reg_email, reg_username, reg_password)
+                token_data = login(reg_email, reg_password)
+                token = token_data["access_token"]
+                st.session_state["access_token"] = token
+                st.session_state["auth_user"] = me(token)
+                st.success("회원가입했습니다.")
+                st.rerun()
+            except Exception as error:
+                st.error(f"회원가입 실패: {error}")
+
+    return None, []
+
+
 def render_sidebar() -> dict:
     universe = get_universe()
     st.sidebar.title("Robby")
+    token, saved_tickers = render_auth_panel()
+    default_tickers = [ticker for ticker in saved_tickers if ticker in set(universe["ticker"])] or get_default_tickers()
     risk_label = st.sidebar.radio("투자 성향", list(PROFILE_LABELS.values()), index=1)
     risk_level = next(key for key, value in PROFILE_LABELS.items() if value == risk_label)
     investment_amount = st.sidebar.number_input("투자 가능 금액", min_value=1_000_000, max_value=500_000_000, value=30_000_000, step=1_000_000)
     selected = st.sidebar.multiselect(
         "투자 대상",
         universe["ticker"].tolist(),
-        default=get_default_tickers(),
-        format_func=lambda ticker: f"{universe.loc[universe['ticker'] == ticker, 'name'].iloc[0]} ({ticker})",
+        default=default_tickers,
+        format_func=get_asset_label,
     )
+    if token and st.sidebar.button("투자 대상 저장", use_container_width=True, key="save_user_tickers"):
+        try:
+            _sync_saved_tickers(token, selected)
+            st.sidebar.success("투자 대상을 저장했습니다.")
+        except Exception as error:
+            st.sidebar.error(f"투자 대상 저장 실패: {error}")
     excluded = st.sidebar.multiselect(
         "제외 종목",
         selected,
         default=[],
-        format_func=lambda ticker: f"{universe.loc[universe['ticker'] == ticker, 'name'].iloc[0]} ({ticker})",
+        format_func=get_asset_label,
     )
     if not selected:
         st.sidebar.warning("투자 대상이 비어 있어 기본 유니버스를 사용합니다.")
@@ -72,6 +170,7 @@ def render_sidebar() -> dict:
         "excluded_tickers": excluded,
         "active_tickers": active,
         "horizon": horizon,
+        "access_token": token,
     }
 
 

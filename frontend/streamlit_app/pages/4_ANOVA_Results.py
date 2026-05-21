@@ -19,7 +19,7 @@ state = render_sidebar()
 st.title("ANOVA 성과 검증")
 
 strategy = st.selectbox("전략", list(STRATEGY_LABELS.keys()), format_func=lambda value: STRATEGY_LABELS[value])
-result = load_api_data("백테스트", backtest, state["active_tickers"], strategy)
+result = load_api_data("백테스트", backtest, state["active_tickers"], strategy, token=state["access_token"])
 metrics = result["metrics"]
 
 cols = st.columns(4)
@@ -28,7 +28,7 @@ cols[1].metric("Sharpe", f"{metrics['sharpe_ratio']:.2f}")
 cols[2].metric("MDD", f"{metrics['max_drawdown'] * 100:.1f}%", delta_color="inverse")
 cols[3].metric("승률", f"{metrics['win_rate'] * 100:.1f}%")
 
-comparison_results = load_api_data("전략 비교", strategy_backtests, state["active_tickers"], list(STRATEGY_LABELS.keys()))
+comparison_results = load_api_data("전략 비교", strategy_backtests, state["active_tickers"], list(STRATEGY_LABELS.keys()), token=state["access_token"])
 comparison_df = strategy_comparison_from_results(comparison_results)
 
 left, right = st.columns([1, 1])

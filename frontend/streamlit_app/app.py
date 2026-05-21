@@ -15,9 +15,10 @@ optimize_result = load_api_data(
     risk_level=state["risk_level"],
     tickers=state["selected_tickers"],
     excluded=state["excluded_tickers"],
+    token=state["access_token"],
 )
-research_result = load_api_data("리서치", research, "현재 포트폴리오 리스크 요약", max_results=3)
-backtest_result = load_api_data("백테스트", backtest, state["active_tickers"], "drl")
+research_result = load_api_data("리서치", research, "현재 포트폴리오 리스크 요약", max_results=3, token=state["access_token"])
+backtest_result = load_api_data("백테스트", backtest, state["active_tickers"], "drl", token=state["access_token"])
 weight_df = get_weight_table(optimize_result["weights"])
 
 st.title("Robby 통합 관제 대시보드")

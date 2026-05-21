@@ -20,8 +20,9 @@ result = load_api_data(
     risk_level=state["risk_level"],
     tickers=state["selected_tickers"],
     excluded=state["excluded_tickers"],
+    token=state["access_token"],
 )
-backtest_result = load_api_data("백테스트", backtest, state["active_tickers"], "drl")
+backtest_result = load_api_data("백테스트", backtest, state["active_tickers"], "drl", token=state["access_token"])
 weights = result["weights"]
 weight_df = get_weight_table(weights)
 
