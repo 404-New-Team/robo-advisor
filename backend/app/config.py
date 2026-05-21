@@ -15,8 +15,8 @@ class Settings(BaseSettings):
     mysql_db: str = "roboadvisor"
 
     ai_service_url: str = "http://ai:8001"
-    ai_timeout: float = 5.0
-    request_timeout: float = 5.0
+    ai_timeout: float = 30.0
+    request_timeout: float = 30.0
 
     jwt_secret_key: str = "change-me-in-production"
     jwt_algorithm: str = "HS256"
