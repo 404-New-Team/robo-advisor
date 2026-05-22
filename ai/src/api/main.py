@@ -44,11 +44,15 @@ _ppo_model: Any = None       # stable_baselines3.PPO
 _research_agent: Any = None  # AgenticRAGResearchAgent
 _prices_cache: dict[str, pd.DataFrame] = {}
 
+_global_risk_state: Any = None  # /ai/research 호출 시 업데이트, /ai/optimize·shap에서 공유
+
 
 # ─── Lifespan: 서버 시작 시 모델 사전 로딩 ─────────────────────────────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global _ppo_model, _research_agent
+    global _ppo_model, _research_agent, _global_risk_state
+    from ..envs.risk_state import RiskState
+    _global_risk_state = RiskState()
 
     # ── 데이터 관련 모듈 사전 임포트 (첫 요청 지연 방지) ──────────────────────
     try:
@@ -380,7 +384,7 @@ async def optimize(req: OptimizeRequest):
 
         if use_ppo:
             try:
-                env = PortfolioEnv(prices=prices, risk_state=RiskState(), window_size=window)
+                env = PortfolioEnv(prices=prices, risk_state=_global_risk_state or RiskState(), window_size=window)
                 obs, _ = env.reset()
                 action, _ = _ppo_model.predict(obs, deterministic=True)
                 weights = env._softmax(action).astype(float)
@@ -456,7 +460,7 @@ async def shap_explain(req: ShapRequest):
         target_idx = tickers.index(req.target_asset)
         window = min(20, len(prices) // 3)
 
-        env = PortfolioEnv(prices=prices, risk_state=RiskState(), window_size=window)
+        env = PortfolioEnv(prices=prices, risk_state=_global_risk_state or RiskState(), window_size=window)
 
         # ── 배경 관측값 수집 (최대 20개) ─────────────────────────────────────
         obs_list: list[np.ndarray] = []
@@ -615,6 +619,10 @@ async def research(req: ResearchRequest):
 
     if report is None:
         return _error(504, "리서치 처리 시간 초과", f"{TIMEOUT_RESEARCH}초 이내에 완료하지 못했습니다.")
+
+    # ── 전역 RiskState 업데이트 ────────────────────────────────────────────────
+    if _global_risk_state is not None and report.risk_tags:
+        _global_risk_state.update(report.risk_tags)
 
     # ── RiskTag → risk_events 변환 ─────────────────────────────────────────
     risk_events = []
