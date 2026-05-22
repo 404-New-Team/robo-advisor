@@ -1,86 +1,86 @@
 {
-  "f_strategy": 0.1206,
-  "p_strategy": 0.887419,
+  "f_strategy": 0.2539,
+  "p_strategy": 0.778142,
   "sig_strategy": false,
-  "eta_sq_partial_strategy": 0.0197,
-  "f_regime": 5.4566,
-  "p_regime": 0.020634,
+  "eta_sq_partial_strategy": 0.0236,
+  "f_regime": 11.4052,
+  "p_regime": 0.000443,
   "sig_regime": true,
-  "eta_sq_partial_regime": 0.4763,
-  "f_interaction": 0.1774,
-  "p_interaction": 0.945767,
+  "eta_sq_partial_regime": 0.5207,
+  "f_interaction": 0.2352,
+  "p_interaction": 0.915356,
   "sig_interaction": false,
-  "eta_sq_partial_interaction": 0.0558,
+  "eta_sq_partial_interaction": 0.0429,
   "cell_means": {
-    "('DRL', 'Bear')": -0.19434509601204109,
-    "('DRL', 'Bull')": 0.17819292205909262,
-    "('DRL', 'Sideways')": -0.1320150130181047,
-    "('EqualWeight', 'Bear')": -0.43862208111603185,
-    "('EqualWeight', 'Bull')": 0.2764687199057239,
-    "('EqualWeight', 'Sideways')": -0.09248387953488058,
-    "('MVO', 'Bear')": -0.40365401543821655,
-    "('MVO', 'Bull')": 0.3332700480270224,
-    "('MVO', 'Sideways')": -0.11036969188285362
+    "('DRL', 'Bear')": -0.21342003256582553,
+    "('DRL', 'Bull')": 0.22958989314847075,
+    "('DRL', 'Sideways')": -0.09158980010621737,
+    "('EqualWeight', 'Bear')": -0.4386220166163399,
+    "('EqualWeight', 'Bull')": 0.3339925288146254,
+    "('EqualWeight', 'Sideways')": -0.09043124531442254,
+    "('MVO', 'Bear')": -0.40365412622733,
+    "('MVO', 'Bull')": 0.35954713243452385,
+    "('MVO', 'Sideways')": -0.0369443401217302
   },
   "cell_ns": {
     "('DRL', 'Bear')": 1,
-    "('DRL', 'Bull')": 5,
-    "('DRL', 'Sideways')": 1,
+    "('DRL', 'Bull')": 7,
+    "('DRL', 'Sideways')": 2,
     "('EqualWeight', 'Bear')": 1,
-    "('EqualWeight', 'Bull')": 5,
-    "('EqualWeight', 'Sideways')": 1,
+    "('EqualWeight', 'Bull')": 7,
+    "('EqualWeight', 'Sideways')": 2,
     "('MVO', 'Bear')": 1,
-    "('MVO', 'Bull')": 5,
-    "('MVO', 'Sideways')": 1
+    "('MVO', 'Bull')": 7,
+    "('MVO', 'Sideways')": 2
   },
   "regime_counts": {
     "Bear": 1,
-    "Bull": 5,
-    "Sideways": 1
+    "Bull": 7,
+    "Sideways": 2
   },
   "regime_means": {
-    "Bear": -0.3455403975220965,
-    "Bull": 0.2626438966639463,
-    "Sideways": -0.11162286147861296
+    "Bear": -0.3518987251364985,
+    "Bull": 0.3077098514658733,
+    "Sideways": -0.0729884618474567
   },
   "strategy_means": {
-    "DRL": 0.08065778589504534,
-    "EqualWeight": 0.12160537698252959,
-    "MVO": 0.1646180761162917
+    "DRL": 0.12105296192610351,
+    "EqualWeight": 0.1718463194457193,
+    "MVO": 0.20392871205708762
   },
   "alpha": 0.05,
   "metric_used": "fold_cagr",
-  "n_obs": 21,
+  "n_obs": 30,
   "anova_table": [
     {
       "source": "C(strategy)",
-      "SS": 0.024678,
+      "SS": 0.034925,
       "df": 2,
-      "MS": 0.012339,
-      "F": 0.1206,
-      "p": 0.887419
+      "MS": 0.017463,
+      "F": 0.2539,
+      "p": 0.778142
     },
     {
       "source": "C(regime)",
-      "SS": 1.11623,
+      "SS": 1.569061,
       "df": 2,
-      "MS": 0.558115,
-      "F": 5.4566,
-      "p": 0.020634
+      "MS": 0.78453,
+      "F": 11.4052,
+      "p": 0.000443
     },
     {
       "source": "C(strategy):C(regime)",
-      "SS": 0.072563,
+      "SS": 0.064714,
       "df": 4,
-      "MS": 0.018141,
-      "F": 0.1774,
-      "p": 0.945767
+      "MS": 0.016178,
+      "F": 0.2352,
+      "p": 0.915356
     },
     {
       "source": "Residual",
-      "SS": 1.227395,
-      "df": 12,
-      "MS": 0.102283,
+      "SS": 1.444528,
+      "df": 21,
+      "MS": 0.068787,
       "F": NaN,
       "p": NaN
     }

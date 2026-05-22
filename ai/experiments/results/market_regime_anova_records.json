@@ -2,127 +2,181 @@
   {
     "strategy": "EqualWeight",
     "regime": "Bull",
-    "cagr": 0.17284346709808363,
+    "cagr": 0.17284319625445166,
     "fold": 0
   },
   {
     "strategy": "MVO",
     "regime": "Bull",
-    "cagr": -0.0039695493585265584,
+    "cagr": -0.003968836774257967,
     "fold": 0
   },
   {
     "strategy": "DRL",
     "regime": "Bull",
-    "cagr": 0.2383392466708476,
+    "cagr": 0.24659965782188453,
     "fold": 0
   },
   {
     "strategy": "EqualWeight",
     "regime": "Bull",
-    "cagr": 0.15006266501484555,
+    "cagr": 0.15006281405205524,
     "fold": 1
   },
   {
     "strategy": "MVO",
     "regime": "Bull",
-    "cagr": 0.15011614468141543,
+    "cagr": 0.15011589013586013,
     "fold": 1
   },
   {
     "strategy": "DRL",
     "regime": "Bull",
-    "cagr": 0.0927863028581859,
+    "cagr": 0.09178999310748215,
     "fold": 1
   },
   {
     "strategy": "EqualWeight",
     "regime": "Bear",
-    "cagr": -0.43862208111603185,
+    "cagr": -0.4386220166163399,
     "fold": 2
   },
   {
     "strategy": "MVO",
     "regime": "Bear",
-    "cagr": -0.40365401543821655,
+    "cagr": -0.40365412622733,
     "fold": 2
   },
   {
     "strategy": "DRL",
     "regime": "Bear",
-    "cagr": -0.19434509601204109,
+    "cagr": -0.21342003256582553,
     "fold": 2
   },
   {
     "strategy": "EqualWeight",
     "regime": "Sideways",
-    "cagr": -0.09248387953488058,
+    "cagr": -0.09248392014024798,
     "fold": 3
   },
   {
     "strategy": "MVO",
     "regime": "Sideways",
-    "cagr": -0.11036969188285362,
+    "cagr": -0.11036932804784505,
     "fold": 3
   },
   {
     "strategy": "DRL",
     "regime": "Sideways",
-    "cagr": -0.1320150130181047,
+    "cagr": -0.12998195950518454,
     "fold": 3
   },
   {
     "strategy": "EqualWeight",
     "regime": "Bull",
-    "cagr": 0.7042828802961765,
+    "cagr": 0.7042828642527998,
     "fold": 4
   },
   {
     "strategy": "MVO",
     "regime": "Bull",
-    "cagr": 1.1543332195022225,
+    "cagr": 1.1543320691468022,
     "fold": 4
   },
   {
     "strategy": "DRL",
     "regime": "Bull",
-    "cagr": 0.34468466342937676,
+    "cagr": 0.30295488520410885,
     "fold": 4
   },
   {
     "strategy": "EqualWeight",
     "regime": "Bull",
-    "cagr": 0.1229512560066719,
+    "cagr": 0.12295117665369748,
     "fold": 5
   },
   {
     "strategy": "MVO",
     "regime": "Bull",
-    "cagr": -0.012883327095351338,
+    "cagr": -0.012883870276218401,
     "fold": 5
   },
   {
     "strategy": "DRL",
     "regime": "Bull",
-    "cagr": 0.11781776044175118,
+    "cagr": 0.06698872613895102,
     "fold": 5
   },
   {
     "strategy": "EqualWeight",
     "regime": "Bull",
-    "cagr": 0.23220333111284197,
+    "cagr": 0.2322033960631773,
     "fold": 6
   },
   {
     "strategy": "MVO",
     "regime": "Bull",
-    "cagr": 0.37875375240535214,
+    "cagr": 0.3787537924854629,
     "fold": 6
   },
   {
     "strategy": "DRL",
     "regime": "Bull",
-    "cagr": 0.0973366368953017,
+    "cagr": 0.12281260728940624,
     "fold": 6
+  },
+  {
+    "strategy": "EqualWeight",
+    "regime": "Sideways",
+    "cagr": -0.0883785704885971,
+    "fold": 7
+  },
+  {
+    "strategy": "MVO",
+    "regime": "Sideways",
+    "cagr": 0.03648064780438465,
+    "fold": 7
+  },
+  {
+    "strategy": "DRL",
+    "regime": "Sideways",
+    "cagr": -0.05319764070725019,
+    "fold": 7
+  },
+  {
+    "strategy": "EqualWeight",
+    "regime": "Bull",
+    "cagr": 0.39719376250656047,
+    "fold": 8
+  },
+  {
+    "strategy": "MVO",
+    "regime": "Bull",
+    "cagr": 0.27510296015806035,
+    "fold": 8
+  },
+  {
+    "strategy": "DRL",
+    "regime": "Bull",
+    "cagr": 0.3122989622366035,
+    "fold": 8
+  },
+  {
+    "strategy": "EqualWeight",
+    "regime": "Bull",
+    "cagr": 0.558410491919636,
+    "fold": 9
+  },
+  {
+    "strategy": "MVO",
+    "regime": "Bull",
+    "cagr": 0.5753779221659574,
+    "fold": 9
+  },
+  {
+    "strategy": "DRL",
+    "regime": "Bull",
+    "cagr": 0.463684420240859,
+    "fold": 9
   }
 ]

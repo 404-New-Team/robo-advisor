@@ -1,17 +1,17 @@
 {
-  "f_statistic": 84.1638,
+  "f_statistic": 43.0361,
   "p_value": 0.0,
   "significant": true,
   "alpha": 0.05,
   "group_means": {
-    "R1_LOGRET": -0.09147579428584625,
-    "R2_SHARPE": -1.3669004969996408,
-    "R3_FULL": -1.7183042187961595
+    "R1_LOGRET": -0.03270082994838504,
+    "R2_SHARPE": 36.940594530762226,
+    "R3_FULL": -5.372265329888645
   },
   "group_stds": {
-    "R1_LOGRET": 0.013887761017297188,
-    "R2_SHARPE": 0.8806245279385075,
-    "R3_FULL": 0.0889712466622006
+    "R1_LOGRET": 0.02804648689396582,
+    "R2_SHARPE": 33.00886076597111,
+    "R3_FULL": 4.565917898232615
   },
   "group_ns": {
     "R1_LOGRET": 30,
@@ -22,25 +22,25 @@
     {
       "group1": "R1_LOGRET",
       "group2": "R2_SHARPE",
-      "mean_diff": 1.2754,
-      "q_statistic": 13.6687,
+      "mean_diff": -36.9733,
+      "q_statistic": 10.526,
       "p_value_approx": 0.0,
       "significant": true
     },
     {
       "group1": "R1_LOGRET",
       "group2": "R3_FULL",
-      "mean_diff": 1.6268,
-      "q_statistic": 17.4347,
-      "p_value_approx": 0.0,
-      "significant": true
+      "mean_diff": 5.3396,
+      "q_statistic": 1.5201,
+      "p_value_approx": 0.285394,
+      "significant": false
     },
     {
       "group1": "R2_SHARPE",
       "group2": "R3_FULL",
-      "mean_diff": 0.3514,
-      "q_statistic": 3.766,
-      "p_value_approx": 0.009227,
+      "mean_diff": 42.3129,
+      "q_statistic": 12.0461,
+      "p_value_approx": 0.0,
       "significant": true
     }
   ]
