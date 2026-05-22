@@ -41,7 +41,7 @@ def main():
     prices = fetch_prices(
         tickers=env_cfg["tickers"],
         start="2019-01-01",
-        end="2024-12-31",
+        end="2026-05-01",
     )
     print(f"데이터 shape: {prices.shape}  기간: {prices.index[0].date()} ~ {prices.index[-1].date()}")
 

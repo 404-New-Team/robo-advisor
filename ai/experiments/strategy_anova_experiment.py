@@ -44,7 +44,7 @@ def _numpy_default(obj):
 def main():
     parser = argparse.ArgumentParser(description="Strategy ANOVA: DRL vs MVO vs EqualWeight")
     parser.add_argument("--start",          type=str, default="2019-01-01",  help="데이터 시작일")
-    parser.add_argument("--end",            type=str, default="2024-12-31",  help="데이터 종료일")
+    parser.add_argument("--end",            type=str, default="2026-05-01",  help="데이터 종료일")
     parser.add_argument("--train_months",   type=int, default=24,  help="훈련 기간 (월)")
     parser.add_argument("--test_months",    type=int, default=6,   help="테스트 기간 (월)")
     parser.add_argument("--step_months",    type=int, default=6,   help="슬라이딩 스텝 (월)")
