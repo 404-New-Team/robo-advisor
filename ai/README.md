@@ -247,12 +247,12 @@ python experiments/walk_forward_experiment.py
 
 | 지표 | 값 |
 | --- | ---: |
-| Fold 수 | 7 |
-| 평균 CAGR | 0.0671 |
-| CAGR 표준편차 | 0.1958 |
-| 평균 Sharpe | 0.9264 |
-| Sharpe 표준편차 | 2.0862 |
-| 평균 MDD | 0.0899 |
+| Fold 수 | 10 |
+| 평균 CAGR | 0.1346 |
+| CAGR 표준편차 | 0.2141 |
+| 평균 Sharpe | 1.4244 |
+| Sharpe 표준편차 | 2.1578 |
+| 평균 MDD | 0.0813 |
 
 해석: 일부 fold에서는 높은 Sharpe와 CAGR을 보였지만, 2022년 구간처럼 손실 fold도 존재합니다. 따라서 DRL 전략의 성과는 시장 국면에 민감하며, 안정적인 우월성을 주장하기보다는 국면별 강점과 약점을 함께 해석해야 합니다.
 
@@ -389,7 +389,7 @@ python experiments/reward_experiment.py
 
 | 항목 | 값 |
 | --- | ---: |
-| F-statistic | 84.1638 |
+| F-statistic | 43.0361 |
 | p-value | 0.0000 |
 | 유의수준 | 0.05 |
 | 결론 | 유의함 |
@@ -398,9 +398,9 @@ python experiments/reward_experiment.py
 
 | 보상 함수 | 평균 episode reward | 표준편차 | N |
 | --- | ---: | ---: | ---: |
-| R1_LOGRET | -0.0915 | 0.0139 | 30 |
-| R2_SHARPE | -1.3669 | 0.8806 | 30 |
-| R3_FULL | -1.7183 | 0.0890 | 30 |
+| R1_LOGRET | -0.0327 | 0.0280 | 30 |
+| R2_SHARPE | 36.9406 | 33.0089 | 30 |
+| R3_FULL | -5.3723 | 4.5659 | 30 |
 
 해석: 보상 함수 변형 간 episode reward 분포에는 통계적으로 유의한 차이가 있습니다. 다만 보상 함수마다 스케일과 페널티 구조가 다르므로, 평균 reward가 가장 높은 `R1_LOGRET`을 곧바로 최종 전략으로 선택하기보다는 백테스트의 MDD, Sharpe, CAGR과 함께 판단해야 합니다.
 
@@ -422,18 +422,18 @@ python experiments/strategy_anova_experiment.py
 | 항목 | 값 |
 | --- | ---: |
 | Metric | fold_cagr |
-| F-statistic | 0.0988 |
-| p-value | 0.906417 |
-| eta squared | 0.0109 |
+| F-statistic | 0.1702 |
+| p-value | 0.844371 |
+| eta squared | 0.0125 |
 | 결론 | 유의하지 않음 |
 
 전략별 평균 CAGR:
 
 | 전략 | 평균 | 표준편차 | N |
 | --- | ---: | ---: | ---: |
-| DRL | 0.0772 | 0.1990 | 7 |
-| MVO | 0.1646 | 0.4973 | 7 |
-| EqualWeight | 0.1216 | 0.3452 | 7 |
+| DRL | 0.1167 | 0.2156 | 10 |
+| MVO | 0.2039 | 0.4302 | 10 |
+| EqualWeight | 0.1718 | 0.3334 | 10 |
 
 해석: 전략 간 평균 CAGR 차이는 관측되지만 p-value가 높아 통계적으로 유의하지 않습니다. 현재 결과로는 DRL이 MVO 또는 동일가중보다 우월하다고 주장할 수 없습니다. 대신 fold별 변동성이 크고 표본 수가 작아, 성과 차이를 안정적으로 검출하기 어렵다는 한계를 보고해야 합니다.
 
@@ -454,17 +454,17 @@ python experiments/market_regime_anova_experiment.py
 
 | 요인 | F | p-value | partial eta squared | 결론 |
 | --- | ---: | ---: | ---: | --- |
-| Strategy | 0.1206 | 0.887419 | 0.0197 | 유의하지 않음 |
-| Regime | 5.4566 | 0.020634 | 0.4763 | 유의함 |
-| Interaction | 0.1774 | 0.945767 | 0.0558 | 유의하지 않음 |
+| Strategy | 0.2539 | 0.778142 | 0.0236 | 유의하지 않음 |
+| Regime | 11.4052 | 0.000443 | 0.5207 | 유의함 |
+| Interaction | 0.2352 | 0.915356 | 0.0429 | 유의하지 않음 |
 
 국면별 평균 CAGR:
 
 | 국면 | 평균 CAGR | Fold 수 |
 | --- | ---: | ---: |
-| Bear | -0.3455 | 1 |
-| Bull | 0.2626 | 5 |
-| Sideways | -0.1116 | 1 |
+| Bear | -0.3519 | 1 |
+| Bull | 0.3077 | 7 |
+| Sideways | -0.0730 | 2 |
 
 해석: 전략 자체보다 시장 국면이 fold CAGR에 더 큰 영향을 준 것으로 나타났습니다. 다만 Bear와 Sideways가 각각 1개 fold뿐이므로, 국면 효과의 통계적 해석에는 주의가 필요합니다. 보고서에서는 유의성 자체보다 표본 불균형과 시장 국면별 취약성을 함께 논의하는 것이 적절합니다.
 
@@ -510,8 +510,8 @@ pytest ai/tests backend/tests
 ## 한계와 개선 방향
 
 - DRL 전략은 평균적으로 MVO와 동일가중을 유의하게 초과하지 못했습니다.
-- Walk-Forward fold 수가 7개라 통계 검정력이 제한됩니다.
-- 시장 국면 분류에서 Bear와 Sideways 표본이 각각 1개로 불균형합니다.
+- Walk-Forward fold 수가 10개라 통계 검정력이 여전히 제한됩니다.
+- 시장 국면 분류에서 Bear 표본이 1개로 불균형합니다.
 - 보상 함수별 episode reward는 스케일이 달라 직접적인 우열 비교에 주의가 필요합니다.
 - 향후 개선은 seed 반복 학습, 더 긴 기간의 데이터, 국면별 균형 표본 확보, lambda 탐색, 리밸런싱 주기별 민감도 분석 순서로 진행하는 것이 좋습니다.
 
