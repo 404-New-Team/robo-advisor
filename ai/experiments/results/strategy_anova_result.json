@@ -1,17 +1,17 @@
 {
-  "f_statistic": 0.1702,
-  "p_value": 0.844371,
+  "f_statistic": 0.1655,
+  "p_value": 0.848295,
   "significant": false,
   "alpha": 0.05,
-  "eta_squared": 0.0125,
+  "eta_squared": 0.0121,
   "eta_squared_interp": "small~medium (0.01≤η²<0.06)",
   "group_means": {
-    "DRL": 0.11673549129717445,
+    "DRL": 0.11786787602206408,
     "MVO": 0.20392871205708762,
     "EqualWeight": 0.1718463194457193
   },
   "group_stds": {
-    "DRL": 0.2155890906638424,
+    "DRL": 0.21573823638676207,
     "MVO": 0.43024212347134666,
     "EqualWeight": 0.33341170554885247
   },
@@ -25,25 +25,25 @@
     {
       "group1": "DRL",
       "group2": "MVO",
-      "mean_diff": -0.0872,
-      "q_statistic": 0.8157,
-      "p_value_approx": 0.56884,
+      "mean_diff": -0.0861,
+      "q_statistic": 0.8051,
+      "p_value_approx": 0.573876,
       "significant": false
     },
     {
       "group1": "DRL",
       "group2": "EqualWeight",
-      "mean_diff": -0.0551,
-      "q_statistic": 0.5156,
-      "p_value_approx": 0.718264,
+      "mean_diff": -0.054,
+      "q_statistic": 0.505,
+      "p_value_approx": 0.723826,
       "significant": false
     },
     {
       "group1": "MVO",
       "group2": "EqualWeight",
       "mean_diff": 0.0321,
-      "q_statistic": 0.3002,
-      "p_value_approx": 0.833515,
+      "q_statistic": 0.3001,
+      "p_value_approx": 0.833531,
       "significant": false
     }
   ]

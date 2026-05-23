@@ -1,20 +1,20 @@
 {
-  "f_strategy": 0.2539,
-  "p_strategy": 0.778142,
+  "f_strategy": 0.2809,
+  "p_strategy": 0.757918,
   "sig_strategy": false,
-  "eta_sq_partial_strategy": 0.0236,
-  "f_regime": 11.4052,
-  "p_regime": 0.000443,
+  "eta_sq_partial_strategy": 0.0261,
+  "f_regime": 11.4652,
+  "p_regime": 0.000431,
   "sig_regime": true,
-  "eta_sq_partial_regime": 0.5207,
-  "f_interaction": 0.2352,
-  "p_interaction": 0.915356,
+  "eta_sq_partial_regime": 0.522,
+  "f_interaction": 0.2597,
+  "p_interaction": 0.900441,
   "sig_interaction": false,
-  "eta_sq_partial_interaction": 0.0429,
+  "eta_sq_partial_interaction": 0.0471,
   "cell_means": {
-    "('DRL', 'Bear')": -0.21342003256582553,
-    "('DRL', 'Bull')": 0.22958989314847075,
-    "('DRL', 'Sideways')": -0.09158980010621737,
+    "('DRL', 'Bear')": -0.20112276984369393,
+    "('DRL', 'Bull')": 0.22534747352203385,
+    "('DRL', 'Sideways')": -0.10040122510032984,
     "('EqualWeight', 'Bear')": -0.4386220166163399,
     "('EqualWeight', 'Bull')": 0.3339925288146254,
     "('EqualWeight', 'Sideways')": -0.09043124531442254,
@@ -39,12 +39,12 @@
     "Sideways": 2
   },
   "regime_means": {
-    "Bear": -0.3518987251364985,
-    "Bull": 0.3077098514658733,
-    "Sideways": -0.0729884618474567
+    "Bear": -0.3477996375624546,
+    "Bull": 0.30629571159039437,
+    "Sideways": -0.07592560351216086
   },
   "strategy_means": {
-    "DRL": 0.12105296192610351,
+    "DRL": 0.11755070946098836,
     "EqualWeight": 0.1718463194457193,
     "MVO": 0.20392871205708762
   },
@@ -54,33 +54,33 @@
   "anova_table": [
     {
       "source": "C(strategy)",
-      "SS": 0.034925,
+      "SS": 0.038128,
       "df": 2,
-      "MS": 0.017463,
-      "F": 0.2539,
-      "p": 0.778142
+      "MS": 0.019064,
+      "F": 0.2809,
+      "p": 0.757918
     },
     {
       "source": "C(regime)",
-      "SS": 1.569061,
+      "SS": 1.556406,
       "df": 2,
-      "MS": 0.78453,
-      "F": 11.4052,
-      "p": 0.000443
+      "MS": 0.778203,
+      "F": 11.4652,
+      "p": 0.000431
     },
     {
       "source": "C(strategy):C(regime)",
-      "SS": 0.064714,
+      "SS": 0.0705,
       "df": 4,
-      "MS": 0.016178,
-      "F": 0.2352,
-      "p": 0.915356
+      "MS": 0.017625,
+      "F": 0.2597,
+      "p": 0.900441
     },
     {
       "source": "Residual",
-      "SS": 1.444528,
+      "SS": 1.425374,
       "df": 21,
-      "MS": 0.068787,
+      "MS": 0.067875,
       "F": NaN,
       "p": NaN
     }
