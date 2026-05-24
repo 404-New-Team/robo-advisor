@@ -19,15 +19,21 @@ def _fetch_krx(tickers: list, start: str, end: str) -> pd.DataFrame:
 
     frames = {}
     for ticker in tickers:
+        df = None
         try:
             df = stock.get_etf_ohlcv_by_date(start_str, end_str, ticker)
-            if df is None or df.empty:
-                df = stock.get_market_ohlcv_by_date(start_str, end_str, ticker)
-            if df is not None and not df.empty:
-                col = "종가" if "종가" in df.columns else df.columns[3]
-                frames[ticker] = df[col]
         except Exception:
             pass
+
+        if df is None or df.empty:
+            try:
+                df = stock.get_market_ohlcv_by_date(start_str, end_str, ticker)
+            except Exception:
+                pass
+
+        if df is not None and not df.empty:
+            col = "종가" if "종가" in df.columns else df.columns[3]
+            frames[ticker] = df[col]
 
     if not frames:
         raise ValueError(f"pykrx: 데이터를 가져올 수 없습니다. 티커={tickers}")

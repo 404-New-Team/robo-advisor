@@ -151,3 +151,32 @@ def backtest(tickers: list[str], strategy: str, token: str | None = None) -> dic
 
 def strategy_backtests(tickers: list[str], strategies: list[str], token: str | None = None) -> list[dict]:
     return [backtest(tickers, strategy, token=token) for strategy in strategies]
+
+
+def allocation(weights: dict, total_amount: float, token: str | None = None) -> dict:
+    if USE_MOCK:
+        items = []
+        for ticker, weight in weights.items():
+            target = total_amount * weight
+            price = 50000
+            shares = int(target // price)
+            items.append({
+                "ticker": ticker,
+                "weight": weight,
+                "current_price": price,
+                "target_amount": round(target, 2),
+                "integer_shares": shares,
+                "fractional_shares": round(target / price, 4),
+                "actual_amount": float(shares * price),
+                "leftover": round(target - shares * price, 2),
+            })
+        total_invested = sum(i["actual_amount"] for i in items)
+        return {
+            "status": "success",
+            "total_amount": total_amount,
+            "total_invested": total_invested,
+            "total_leftover": round(total_amount - total_invested, 2),
+            "items": items,
+        }
+    payload = {"weights": weights, "total_amount": total_amount}
+    return _request("POST", "/allocation", token=token, json=payload)

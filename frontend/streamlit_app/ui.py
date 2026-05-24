@@ -289,6 +289,47 @@ def simulation_chart(df: pd.DataFrame):
     return fig
 
 
+def render_allocation_table(allocation_result: dict) -> None:
+    items = allocation_result.get("items", [])
+    if not items:
+        st.warning("주문 수량 데이터가 없습니다.")
+        return
+
+    summary_cols = st.columns(3)
+    summary_cols[0].metric("총 투자 예정금", format_money(allocation_result["total_amount"]))
+    summary_cols[1].metric("실제 투자금", format_money(allocation_result["total_invested"]))
+    summary_cols[2].metric("잔여금", format_money(allocation_result["total_leftover"]))
+
+    rows = []
+    for item in items:
+        rows.append({
+            "티커": item["ticker"],
+            "비중": item["weight"],
+            "현재가(원)": item["current_price"],
+            "목표금액(원)": int(item["target_amount"]),
+            "정수매수(주)": item["integer_shares"],
+            "소수점(참고)": item["fractional_shares"],
+            "실제투자금(원)": int(item["actual_amount"]),
+            "잔여금(원)": int(item["leftover"]),
+        })
+
+    df = pd.DataFrame(rows)
+    st.dataframe(
+        df,
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "비중": st.column_config.ProgressColumn("비중", min_value=0, max_value=1, format="%.1f%%"),
+            "현재가(원)": st.column_config.NumberColumn("현재가(원)", format="%d"),
+            "목표금액(원)": st.column_config.NumberColumn("목표금액(원)", format="%d"),
+            "정수매수(주)": st.column_config.NumberColumn("정수매수(주)", format="%d"),
+            "소수점(참고)": st.column_config.NumberColumn("소수점(참고)", format="%.4f"),
+            "실제투자금(원)": st.column_config.NumberColumn("실제투자금(원)", format="%d"),
+            "잔여금(원)": st.column_config.NumberColumn("잔여금(원)", format="%d"),
+        },
+    )
+
+
 def percent_dataframe(df: pd.DataFrame, columns: list[str]) -> pd.DataFrame:
     formatted = df.copy()
     for column in columns:
