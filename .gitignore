@@ -33,3 +33,8 @@ logs/
 # 실험 결과
 .pytest_cache_local/
 .pytest_tmp/
+
+# 실행 시 새로 생기는 File들
+ai/experiments/results/mvo_walk_forward_result.json
+backend/static/shap/
+
