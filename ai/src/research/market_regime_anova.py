@@ -417,7 +417,7 @@ def _statsmodels_anova(df: pd.DataFrame):
         f   = float(anova_table_sm.loc[idx, "F"])
         p   = float(anova_table_sm.loc[idx, "PR(>F)"])
         # 인덱스명 정규화 (statsmodels 버전 간 차이 흡수)
-        src = str(idx).replace("strategy", "strategy").replace("regime", "regime")
+        src = str(idx).replace("C(strategy)", "strategy").replace("C(regime)", "regime")
         table.append({"source": src, "SS": round(ss, 6), "df": int(dfi),
                        "MS": round(ms, 6), "F": round(f, 4), "p": round(p, 6)})
 

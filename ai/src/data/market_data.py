@@ -20,14 +20,28 @@ def _fetch_krx(tickers: list, start: str, end: str) -> pd.DataFrame:
     frames = {}
     for ticker in tickers:
         df = None
+        # 일반 주식 먼저 시도 (삼성전자·SK하이닉스 등 비ETF 티커는 여기서 바로 성공)
         try:
-            df = stock.get_etf_ohlcv_by_date(start_str, end_str, ticker)
+            df = stock.get_market_ohlcv_by_date(start_str, end_str, ticker)
         except Exception:
             pass
 
+        # 데이터가 없으면 ETF 엔드포인트 시도
         if df is None or df.empty:
             try:
-                df = stock.get_market_ohlcv_by_date(start_str, end_str, ticker)
+                df = stock.get_etf_ohlcv_by_date(start_str, end_str, ticker)
+            except Exception:
+                pass
+
+        # pykrx 둘 다 실패 시 yfinance(.KS) 폴백
+        if df is None or df.empty:
+            try:
+                import yfinance as yf
+                raw = yf.download(f"{ticker}.KS", start=start, end=end,
+                                  auto_adjust=True, progress=False)
+                if not raw.empty:
+                    close = raw["Close"] if "Close" in raw.columns else raw.iloc[:, 0]
+                    df = close.rename("종가").to_frame()
             except Exception:
                 pass
 
@@ -36,7 +50,7 @@ def _fetch_krx(tickers: list, start: str, end: str) -> pd.DataFrame:
             frames[ticker] = df[col]
 
     if not frames:
-        raise ValueError(f"pykrx: 데이터를 가져올 수 없습니다. 티커={tickers}")
+        raise ValueError(f"pykrx/yfinance: 데이터를 가져올 수 없습니다. 티커={tickers}")
 
     result = pd.DataFrame(frames)
     result.index = pd.to_datetime(result.index)

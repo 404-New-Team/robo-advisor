@@ -42,6 +42,8 @@ services:
       PYTHONPATH: /app
       MPLBACKEND: Agg
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      KRX_ID: ${KRX_ID:-}
+      KRX_PW: ${KRX_PW:-}
     volumes:
       - ./ai/checkpoints:/app/checkpoints
       - ./ai/experiments/results:/app/experiments/results

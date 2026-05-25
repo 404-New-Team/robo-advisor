@@ -52,7 +52,7 @@ def calculate_bollinger_bands(prices: pd.DataFrame, period: int = 20, num_std: f
 
 def calculate_bb_position(prices: pd.DataFrame, period: int = 20, num_std: float = 2.0) -> pd.DataFrame:
     """Bollinger Bands 위치 (0~1 정규화)."""
-    upper, lower = calculate_bollinger_bands(prices, period, num_std)[0], calculate_bollinger_bands(prices, period, num_std)[2]
+    upper, _, lower = calculate_bollinger_bands(prices, period, num_std)
     bb_position = (prices - lower) / (upper - lower + 1e-8)
     return bb_position.clip(0, 1)
 
