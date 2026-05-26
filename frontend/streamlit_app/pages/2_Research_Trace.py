@@ -7,7 +7,7 @@ import streamlit as st
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from api_client import research
-from reference_data import get_default_tickers, get_universe
+from reference_data import get_universe
 from ui import configure_page, load_api_data, render_sidebar
 
 
@@ -18,20 +18,70 @@ universe = get_universe()
 
 st.title("Reasoning Trace")
 
+
+def _ticker_label(value: str | None) -> str:
+    if value is None:
+        return "전체 포트폴리오"
+    row = universe.loc[universe["ticker"] == value, "name"]
+    name = row.iloc[0] if not row.empty else value
+    return f"{name} ({value})"
+
+
+def _latest_weights(active_tickers: list[str]) -> dict[str, float]:
+    weights = st.session_state.get("latest_portfolio_weights")
+    if not isinstance(weights, dict):
+        return {}
+    active = set(active_tickers)
+    return {
+        str(ticker): float(weight)
+        for ticker, weight in weights.items()
+        if ticker in active and isinstance(weight, int | float)
+    }
+
+
+def _portfolio_context() -> dict:
+    active_tickers = state["active_tickers"]
+    return {
+        "risk_level": state["risk_level"],
+        "investment_amount": state["investment_amount"],
+        "selected_tickers": state["selected_tickers"],
+        "excluded_tickers": state["excluded_tickers"],
+        "active_tickers": active_tickers,
+        "weights": _latest_weights(active_tickers),
+        "ticker_names": {
+            ticker: _ticker_label(ticker).rsplit(" (", 1)[0]
+            for ticker in active_tickers
+        },
+    }
+
+
 query = st.text_area("투자 질문", value="현재 포트폴리오의 주요 리스크와 비중 조정 근거를 요약해줘.", height=90)
 cols = st.columns([1, 1, 2])
 ticker = cols[0].selectbox(
     "대상 종목",
-    [None] + get_default_tickers(),
-    format_func=lambda value: "전체 포트폴리오" if value is None else f"{universe.loc[universe['ticker'] == value, 'name'].iloc[0]} ({value})",
+    [None] + state["active_tickers"],
+    format_func=_ticker_label,
 )
 max_results = cols[1].slider("출처 수", min_value=3, max_value=10, value=5)
 submitted = cols[2].button("리서치 실행", type="primary", use_container_width=True)
 
-result = load_api_data("리서치", research, query, ticker=ticker, max_results=max_results, token=state["access_token"])
-
 if submitted:
+    result = load_api_data(
+        "리서치",
+        research,
+        query,
+        ticker=ticker,
+        max_results=max_results,
+        token=state["access_token"],
+        portfolio_context=_portfolio_context(),
+    )
+    st.session_state["research_trace_result"] = result
     st.toast("백엔드 리서치 결과를 갱신했습니다.")
+
+result = st.session_state.get("research_trace_result")
+if result is None:
+    st.info("리서치 실행 버튼을 눌러 현재 포트폴리오 기준 분석을 시작하세요.")
+    st.stop()
 
 st.subheader("요약")
 st.write(result["summary"])
