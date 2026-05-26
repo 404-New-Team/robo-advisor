@@ -123,22 +123,21 @@ def optimize_portfolio(risk_level: str, tickers: list[str], excluded: list[str] 
 
 
 def research(
-    query: str,
-    ticker: str | None = None,
+    tickers: list[str],
     max_results: int = 5,
     token: str | None = None,
     portfolio_context: dict[str, Any] | None = None,
 ) -> dict:
+    research_tickers = [ticker for ticker in tickers if ticker]
     if USE_MOCK:
         from mock_data import get_research_response
 
         return get_research_response(
-            ticker=ticker,
-            query=query,
+            tickers=research_tickers,
             max_results=max_results,
             portfolio_context=portfolio_context,
         )
-    payload = {"query": query, "ticker": ticker, "max_results": max_results}
+    payload = {"tickers": research_tickers, "max_results": max_results}
     if portfolio_context is not None:
         payload["portfolio_context"] = portfolio_context
     return _request("POST", "/research", token=token, json=payload)

@@ -30,7 +30,7 @@ portfolio_context = {
 research_result = load_api_data(
     "리서치",
     research,
-    "현재 포트폴리오 리스크 요약",
+    tickers=state["active_tickers"],
     max_results=3,
     token=state["access_token"],
     portfolio_context=portfolio_context,

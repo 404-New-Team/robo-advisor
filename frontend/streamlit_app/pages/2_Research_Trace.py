@@ -55,7 +55,6 @@ def _portfolio_context() -> dict:
     }
 
 
-query = st.text_area("투자 질문", value="현재 포트폴리오의 주요 리스크와 비중 조정 근거를 요약해줘.", height=90)
 cols = st.columns([1, 1, 2])
 ticker = cols[0].selectbox(
     "대상 종목",
@@ -66,11 +65,11 @@ max_results = cols[1].slider("출처 수", min_value=3, max_value=10, value=5)
 submitted = cols[2].button("리서치 실행", type="primary", use_container_width=True)
 
 if submitted:
+    research_tickers = state["active_tickers"] if ticker is None else [ticker]
     result = load_api_data(
         "리서치",
         research,
-        query,
-        ticker=ticker,
+        tickers=research_tickers,
         max_results=max_results,
         token=state["access_token"],
         portfolio_context=_portfolio_context(),

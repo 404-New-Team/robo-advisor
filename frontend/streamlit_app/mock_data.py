@@ -143,14 +143,13 @@ def get_simulation_paths() -> pd.DataFrame:
 
 
 def get_research_response(
-    ticker: str | None = "005930",
-    query: str | None = None,
+    tickers: list[str] | None = None,
     max_results: int = 5,
     portfolio_context: dict | None = None,
 ) -> dict:
-    target = ticker or "포트폴리오"
+    active_tickers = tickers or (portfolio_context or {}).get("active_tickers") or ["SPY"]
+    target = active_tickers[0] if len(active_tickers) == 1 else "포트폴리오"
     now = datetime.now(timezone.utc)
-    active_tickers = (portfolio_context or {}).get("active_tickers") or []
     weights = (portfolio_context or {}).get("weights") or {}
     weight_text = ", ".join(f"{ticker}:{weights[ticker] * 100:.1f}%" for ticker in active_tickers if ticker in weights)
     context_text = f" 보유 종목 {', '.join(active_tickers)} 기준입니다." if active_tickers else ""
@@ -189,19 +188,19 @@ def get_research_response(
     ][:max_results]
     return {
         "status": "success",
-        "ticker": ticker,
+        "tickers": active_tickers,
         "summary": f"{target} 관련 최근 리서치에서 성장 모멘텀은 유지되지만 정책 및 밸류에이션 리스크가 동시에 감지되었습니다.{context_text}{weight_suffix}",
         "risk_events": [
             {
                 "type": "rate_sensitivity",
                 "description": "장기 금리 변화가 TLT와 성장주 밸류에이션에 동시에 영향을 줄 수 있습니다.",
-                "severity": "MEDIUM",
+                "severity": "moderate",
                 "detected_at": (now - timedelta(hours=6)).isoformat(),
             },
             {
                 "type": "earnings_revision",
                 "description": "AAPL과 MSFT의 실적 기대가 QQQ와 SPY의 위험 대비 기대수익을 지지합니다.",
-                "severity": "LOW",
+                "severity": "low",
                 "detected_at": (now - timedelta(hours=2)).isoformat(),
             },
         ],
