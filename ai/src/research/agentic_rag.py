@@ -813,7 +813,6 @@ class AgenticRAGResearchAgent:
         if not normalized:
             context_section = f"\n\n포트폴리오 구성/비중 기준:\n{portfolio_block}" if portfolio_block else ""
             return (
-                f"질문: {query}\n\n"
                 f"{context_section}\n\n"
                 "검색된 근거 문서가 부족합니다. 뉴스/공시 데이터를 먼저 적재한 뒤 다시 검색해야 합니다."
             )
@@ -835,8 +834,7 @@ class AgenticRAGResearchAgent:
             else "\n\n"
         )
         return (
-            f"질문: {query}\n\n"
-            + portfolio_section
+            portfolio_section
             + f"요약: {summary}\n\n"
             + link_section
             + f"투자 의견: {opinion_text}"

@@ -370,10 +370,8 @@ class ShapRequest(BaseModel):
 
 
 class ResearchRequest(BaseModel):
-    query: str
-    ticker: Optional[str] = None
+    tickers: list[str] = Field(..., min_length=1)
     max_results: int = Field(5, ge=1, le=20)
-    portfolio_context: dict[str, Any] | None = None
 
 
 class BacktestRequest(BaseModel):
@@ -714,20 +712,13 @@ async def shap_explain(req: ShapRequest):
 # ─── POST /ai/research ────────────────────────────────────────────────────────
 @app.post("/ai/research")
 async def research(req: ResearchRequest):
-    if not req.query or not req.query.strip():
-        return _error(400, "query가 비어 있습니다.", "투자 관련 질문을 입력하세요.")
+    tickers_str = ", ".join(req.tickers)
+    query = f"{tickers_str} 주요 리스크와 비중 조정 근거를 요약해줘."
 
     def _compute():
         agent = _get_research_agent()
-
-        # n_results 동적 반영
         agent.config.n_results = req.max_results
-
-        report = agent.run(
-            query=req.query.strip(),
-            ticker=req.ticker,
-            portfolio_context=req.portfolio_context,
-        )
+        report = agent.run(query=query, ticker=req.tickers[0] if len(req.tickers) == 1 else None)
         return report
 
     try:
@@ -776,7 +767,7 @@ async def research(req: ResearchRequest):
 
     return {
         "status": "success",
-        "ticker": req.ticker,
+        "tickers": req.tickers,
         "summary": report.answer,
         "risk_events": risk_events,
         "sources": sources,
