@@ -49,10 +49,6 @@ with right:
         },
     )
     total_weight = edited_df["비중"].sum()
-    if abs(total_weight - 100) > 0.1:
-        st.warning(f"현재 합계 {total_weight:.1f}%입니다. 주문 전 100%로 맞춰야 합니다.")
-    else:
-        st.success("비중 합계가 100%입니다.")
 
 adjusted_weights = {
     row["티커"]: row["비중"] / max(total_weight, 1)
