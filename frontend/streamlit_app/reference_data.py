@@ -4,16 +4,16 @@ import pandas as pd
 
 
 ASSET_UNIVERSE = [
-    {"ticker": "005930", "name": "삼성전자", "sector": "반도체", "region": "KR"},
-    {"ticker": "000660", "name": "SK하이닉스", "sector": "반도체", "region": "KR"},
-    {"ticker": "035420", "name": "NAVER", "sector": "인터넷", "region": "KR"},
-    {"ticker": "035720", "name": "카카오", "sector": "인터넷", "region": "KR"},
-    {"ticker": "051910", "name": "LG화학", "sector": "2차전지", "region": "KR"},
-    {"ticker": "006400", "name": "삼성SDI", "sector": "2차전지", "region": "KR"},
-    {"ticker": "005380", "name": "현대차", "sector": "자동차", "region": "KR"},
-    {"ticker": "000270", "name": "기아", "sector": "자동차", "region": "KR"},
-    {"ticker": "068270", "name": "셀트리온", "sector": "바이오", "region": "KR"},
-    {"ticker": "207940", "name": "삼성바이오로직스", "sector": "바이오", "region": "KR"},
+    {"ticker": "SPY", "name": "SPDR S&P 500 ETF", "sector": "미국 대형주", "region": "US"},
+    {"ticker": "QQQ", "name": "Invesco QQQ ETF", "sector": "미국 성장주", "region": "US"},
+    {"ticker": "GLD", "name": "SPDR Gold Shares", "sector": "금", "region": "US"},
+    {"ticker": "TLT", "name": "iShares 20+ Year Treasury Bond ETF", "sector": "미국 장기채", "region": "US"},
+    {"ticker": "EFA", "name": "iShares MSCI EAFE ETF", "sector": "선진국 주식", "region": "Global"},
+    {"ticker": "AAPL", "name": "Apple", "sector": "기술주", "region": "US"},
+    {"ticker": "MSFT", "name": "Microsoft", "sector": "기술주", "region": "US"},
+    {"ticker": "069500", "name": "KODEX 200", "sector": "국내 주식 ETF", "region": "KR"},
+    {"ticker": "102110", "name": "TIGER 200", "sector": "국내 주식 ETF", "region": "KR"},
+    {"ticker": "233740", "name": "KODEX 코스닥150 레버리지", "sector": "국내 레버리지 ETF", "region": "KR"},
 ]
 
 PROFILE_LABELS = {

@@ -29,42 +29,42 @@ def _normalize(weights: dict[str, float]) -> dict[str, float]:
 def _base_weights(risk_level: str) -> dict[str, float]:
     if risk_level == "low":
         weights = {
-            "005930": 0.18,
-            "000660": 0.10,
-            "035420": 0.08,
-            "035720": 0.05,
-            "051910": 0.10,
-            "006400": 0.07,
-            "005380": 0.14,
-            "000270": 0.11,
-            "068270": 0.09,
-            "207940": 0.08,
+            "SPY": 0.18,
+            "QQQ": 0.10,
+            "GLD": 0.18,
+            "TLT": 0.22,
+            "EFA": 0.10,
+            "AAPL": 0.05,
+            "MSFT": 0.05,
+            "069500": 0.05,
+            "102110": 0.05,
+            "233740": 0.02,
         }
     elif risk_level == "high":
         weights = {
-            "005930": 0.16,
-            "000660": 0.15,
-            "035420": 0.12,
-            "035720": 0.09,
-            "051910": 0.13,
-            "006400": 0.10,
-            "005380": 0.09,
-            "000270": 0.06,
-            "068270": 0.05,
-            "207940": 0.05,
+            "SPY": 0.16,
+            "QQQ": 0.18,
+            "GLD": 0.05,
+            "TLT": 0.03,
+            "EFA": 0.08,
+            "AAPL": 0.14,
+            "MSFT": 0.14,
+            "069500": 0.07,
+            "102110": 0.05,
+            "233740": 0.10,
         }
     else:
         weights = {
-            "005930": 0.17,
-            "000660": 0.13,
-            "035420": 0.10,
-            "035720": 0.07,
-            "051910": 0.12,
-            "006400": 0.08,
-            "005380": 0.12,
-            "000270": 0.08,
-            "068270": 0.06,
-            "207940": 0.07,
+            "SPY": 0.20,
+            "QQQ": 0.14,
+            "GLD": 0.12,
+            "TLT": 0.12,
+            "EFA": 0.10,
+            "AAPL": 0.08,
+            "MSFT": 0.08,
+            "069500": 0.06,
+            "102110": 0.06,
+            "233740": 0.04,
         }
     return weights
 
@@ -97,22 +97,22 @@ def get_optimize_response(
         "metrics": metrics,
         "risk_tags": [
             {
-                "asset": "000660",
-                "type": "earnings_surprise",
+                "asset": "TLT",
+                "type": "rate_sensitivity",
+                "severity": "moderate",
+                "source": "장기 금리 변동성 확대",
+            },
+            {
+                "asset": "233740",
+                "type": "leverage_volatility",
+                "severity": "moderate",
+                "source": "코스닥 레버리지 ETF 변동성 확대",
+            },
+            {
+                "asset": "AAPL",
+                "type": "earnings_revision",
                 "severity": "low",
-                "source": "반도체 업황 회복 뉴스",
-            },
-            {
-                "asset": "051910",
-                "type": "regulation_change",
-                "severity": "moderate",
-                "source": "2차전지 보조금 정책 변경",
-            },
-            {
-                "asset": "035420",
-                "type": "platform_competition",
-                "severity": "moderate",
-                "source": "인터넷 플랫폼 광고 성장 둔화",
+                "source": "빅테크 실적 추정치 조정",
             },
         ],
         "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -157,32 +157,32 @@ def get_research_response(
     weight_suffix = f" 추천 비중은 {weight_text}입니다." if weight_text else ""
     sources = [
         {
-            "title": "반도체 수요 회복과 고대역폭 메모리 투자 확대",
-            "url": "https://example.com/news/semiconductor-cycle",
+            "title": "미국 대형주 ETF, 금리 경로와 실적 전망에 주목",
+            "url": "https://example.com/news/us-large-cap-etf",
             "published_at": (now - timedelta(hours=3)).isoformat(),
             "relevance_score": 0.94,
         },
         {
-            "title": "국내 2차전지 업종, 정책 불확실성에도 장기 수요 유지",
-            "url": "https://example.com/news/battery-policy",
+            "title": "나스닥 성장주, AI 투자 확대와 밸류에이션 부담 공존",
+            "url": "https://example.com/news/nasdaq-growth-valuation",
             "published_at": (now - timedelta(hours=7)).isoformat(),
             "relevance_score": 0.88,
         },
         {
-            "title": "플랫폼 기업 광고 매출 성장률 둔화 분석",
-            "url": "https://example.com/news/platform-ad",
+            "title": "금 가격, 실질금리와 달러 흐름에 민감한 박스권",
+            "url": "https://example.com/news/gold-rates-dollar",
             "published_at": (now - timedelta(days=1)).isoformat(),
             "relevance_score": 0.81,
         },
         {
-            "title": "자동차 수출 단가 상승과 환율 민감도 점검",
-            "url": "https://example.com/news/auto-export",
+            "title": "장기 국채 ETF, 금리 인하 기대 변화에 변동성 확대",
+            "url": "https://example.com/news/long-duration-bonds",
             "published_at": (now - timedelta(days=1, hours=5)).isoformat(),
             "relevance_score": 0.76,
         },
         {
-            "title": "바이오시밀러 승인 일정과 실적 추정치 변화",
-            "url": "https://example.com/news/bio-approval",
+            "title": "국내 대표지수 ETF와 코스닥 레버리지 상품 수급 점검",
+            "url": "https://example.com/news/korea-etf-flows",
             "published_at": (now - timedelta(days=2)).isoformat(),
             "relevance_score": 0.72,
         },
@@ -193,14 +193,14 @@ def get_research_response(
         "summary": f"{target} 관련 최근 리서치에서 성장 모멘텀은 유지되지만 정책 및 밸류에이션 리스크가 동시에 감지되었습니다.{context_text}{weight_suffix}",
         "risk_events": [
             {
-                "type": "regulation_change",
-                "description": "2차전지 보조금과 공급망 규정 변화가 마진 전망에 영향을 줄 수 있습니다.",
+                "type": "rate_sensitivity",
+                "description": "장기 금리 변화가 TLT와 성장주 밸류에이션에 동시에 영향을 줄 수 있습니다.",
                 "severity": "MEDIUM",
                 "detected_at": (now - timedelta(hours=6)).isoformat(),
             },
             {
                 "type": "earnings_revision",
-                "description": "반도체 업종의 이익 추정치가 상향되어 위험 대비 기대수익이 개선되었습니다.",
+                "description": "AAPL과 MSFT의 실적 기대가 QQQ와 SPY의 위험 대비 기대수익을 지지합니다.",
                 "severity": "LOW",
                 "detected_at": (now - timedelta(hours=2)).isoformat(),
             },
@@ -211,35 +211,42 @@ def get_research_response(
             "Execute: ChromaDB 유사도 상위 문서와 시장 지표를 결합",
             "Self-Correction: 중복 기사와 낮은 관련도 문서를 제거",
             "Verify: 리스크 태그와 포트폴리오 비중 변화 방향을 대조",
-            "Answer: 성장 모멘텀 반영, 정책 리스크는 비중 확대 폭 제한",
+            "Answer: 성장주 모멘텀 반영, 금리와 레버리지 리스크는 비중 확대 폭 제한",
         ],
         "self_correction_count": 2,
         "timestamp": now.isoformat(),
     }
 
 
-def get_explain_response(target_asset: str = "005930") -> dict:
+def get_explain_response(target_asset: str = "SPY") -> dict:
     shap_by_asset = {
-        "005930": {
+        "SPY": {
             "momentum_7d": 0.037,
             "volatility_30d": -0.014,
             "news_risk_score": -0.009,
             "rsi": 0.022,
             "market_cap_weight": 0.031,
         },
-        "000660": {
+        "QQQ": {
             "momentum_7d": 0.044,
             "volatility_30d": -0.018,
             "news_risk_score": 0.012,
             "rsi": 0.019,
             "market_cap_weight": 0.017,
         },
-        "051910": {
-            "momentum_7d": 0.021,
-            "volatility_30d": -0.024,
-            "news_risk_score": -0.031,
-            "rsi": 0.015,
-            "market_cap_weight": 0.011,
+        "TLT": {
+            "momentum_7d": 0.012,
+            "volatility_30d": -0.019,
+            "news_risk_score": -0.017,
+            "rsi": 0.010,
+            "market_cap_weight": 0.008,
+        },
+        "233740": {
+            "momentum_7d": 0.028,
+            "volatility_30d": -0.041,
+            "news_risk_score": -0.018,
+            "rsi": 0.016,
+            "market_cap_weight": 0.004,
         },
     }
     shap_values = shap_by_asset.get(
@@ -266,7 +273,7 @@ def get_explain_response(target_asset: str = "005930") -> dict:
 
 def get_shap_summary() -> pd.DataFrame:
     rows = []
-    for ticker in ["005930", "000660", "035420", "051910", "005380", "068270"]:
+    for ticker in ["SPY", "QQQ", "GLD", "TLT", "EFA", "AAPL", "MSFT", "069500", "102110", "233740"]:
         shap_values = get_explain_response(ticker)["shap_values"]
         for feature, value in shap_values.items():
             rows.append(

@@ -1,6 +1,15 @@
 environment:
-  # 해외 ETF/주식 7개 (yfinance) + 국내 ETF 3개 (pykrx 6자리)
-  tickers: ["SPY", "QQQ", "GLD", "TLT", "EFA", "AAPL", "MSFT", "069500", "102110", "233740"]
+  tickers:
+    - SPY
+    - QQQ
+    - GLD
+    - TLT
+    - EFA
+    - AAPL
+    - MSFT
+    - "069500"
+    - "102110"
+    - "233740"
   window_size: 20
   initial_balance: 1000000
   transaction_cost: 0.00015

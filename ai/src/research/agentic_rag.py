@@ -736,9 +736,74 @@ class AgenticRAGResearchAgent:
             )
         return summary, opinion
 
+    _RISK_NAME_KO: dict[str, str] = {
+        "regulatory_risk": "규제",
+        "earnings_shock": "실적",
+        "geopolitical_risk": "지정학",
+        "market_stress": "시장 변동성",
+        "liquidity_risk": "유동성",
+    }
+
+    _RISK_DETAIL_KO: dict[str, str] = {
+        "regulatory_risk": "정책·법률 변화가 사업 수익성에 직접 영향을 줄 수 있습니다",
+        "earnings_shock": "실적·매출 변동으로 단기 주가 변동성이 확대될 수 있습니다",
+        "geopolitical_risk": "무역 제재·분쟁 등 지정학적 불확실성이 공급망과 수출 실적에 영향을 줄 수 있습니다",
+        "market_stress": "전반적인 시장 변동성 확대 국면으로 포트폴리오 베타 노출을 점검해야 합니다",
+        "liquidity_risk": "자금 조달 비용 상승 및 부채 구조 변화가 현금 흐름에 부담을 줄 수 있습니다",
+    }
+
+    def _build_summary_and_opinion(
+        self,
+        citations: list,
+        risk_tags: list[RiskTag],
+    ) -> tuple[str, str]:
+        """(요약, 투자 의견) 문자열 쌍 생성 — 리스크 태그 기반 자연어, 인용 마커·출처 제목 없음."""
+        active = [t for t in risk_tags if t.level > 0.2]
+
+        if active:
+            top = max(active, key=lambda t: t.level)
+            top_ko = self._RISK_NAME_KO.get(top.name, top.name)
+            detail = self._RISK_DETAIL_KO.get(top.name, "포트폴리오 영향을 면밀히 점검해야 합니다")
+            other_tags = sorted(
+                [t for t in active if t.name != top.name],
+                key=lambda t: t.level,
+                reverse=True,
+            )
+            other_str = (
+                f" 이와 함께 {', '.join(self._RISK_NAME_KO.get(t.name, t.name) for t in other_tags)} "
+                "리스크도 동시에 모니터링이 필요합니다."
+                if other_tags else ""
+            )
+
+            level_desc = "높음" if top.level >= 0.7 else "중간" if top.level >= 0.4 else "낮음"
+
+            summary = (
+                f"{top_ko} 리스크가 탐지되었습니다(수준: {level_desc}). "
+                "리스크 완화 시그널이 확인되기 전까지 해당 자산의 비중 축소를 권고합니다."
+            )
+            opinion = (
+                f"{detail}. "
+                f"현재 {top_ko} 리스크 수준은 {top.level:.2f}로 {level_desc}으로 평가되며, "
+                "이는 단기적으로 포트폴리오 변동성을 확대시킬 수 있는 요인입니다. "
+                "실적 개선·규제 명확화·시장 안정 등의 완화 시그널이 나타나기 전까지 "
+                f"해당 자산의 비중을 현 수준 이하로 유지할 것을 권고합니다.{other_str} "
+                "향후 관련 동향을 지속 점검하며 비중을 점진적으로 재조정하는 전략을 권고합니다."
+            )
+        else:
+            summary = (
+                "현재 포트폴리오에서 뚜렷한 고위험 신호가 감지되지 않았습니다. "
+                "현 비중을 유지하는 기조를 권고합니다."
+            )
+            opinion = (
+                "분석 결과 즉각적인 대응이 필요한 고위험 이벤트는 관측되지 않았습니다. "
+                "다만 시장 환경은 언제든 변화할 수 있으므로, "
+                "실적·규제·유동성 관련 동향을 지속 모니터링하며 현 비중을 유지하는 기조를 권고합니다."
+            )
+        return summary, opinion
+
     def _generate_extractive_report(
         self,
-        query: str,
+        _query: str,
         citations: list[Citation] | list[dict[str, Any]],
         risk_tags: list[RiskTag],
         portfolio_context: Optional[dict[str, Any]] = None,

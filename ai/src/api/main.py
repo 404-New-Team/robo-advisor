@@ -422,21 +422,6 @@ async def optimize(req: OptimizeRequest):
         weights: np.ndarray
         use_ppo = False
 
-<<<<<<< HEAD
-        if use_ppo:
-            try:
-                env = PortfolioEnv(prices=prices, risk_state=_global_risk_state or RiskState(), window_size=window)
-                obs, _ = env.reset()
-                action, _ = _ppo_model.predict(obs, deterministic=True)
-                weights = env._softmax(action).astype(float)
-            except Exception as exc:
-                logger.warning(f"PPO 예측 실패 → MVO 폴백: {exc}")
-                mvo = MVO(MVOConfig(weight_min=_mvo_weight_min(n, req.risk_level)))
-                mvo.fit(prices)
-                weights = mvo.get_weights().astype(float)
-        else:
-            mvo = MVO(MVOConfig(weight_min=_mvo_weight_min(n, req.risk_level)))
-=======
         if _ppo_model is not None and _ppo_tickers:
             req_set = set(tickers)
             train_set = set(_ppo_tickers)
@@ -467,8 +452,7 @@ async def optimize(req: OptimizeRequest):
                 logger.info(f"PPO 폴백: 요청 티커 {outside}가 학습 범위 밖 → MVO 사용")
 
         if not use_ppo:
-            mvo = MVO(MVOConfig())
->>>>>>> origin/develop
+            mvo = MVO(MVOConfig(weight_min=_mvo_weight_min(n, req.risk_level)))
             mvo.fit(prices)
             weights = mvo.get_weights().astype(float)
 
