@@ -304,13 +304,13 @@ def render_allocation_table(allocation_result: dict) -> None:
     for item in items:
         rows.append({
             "티커": item["ticker"],
-            "비중": item["weight"],
-            "현재가(원)": item["current_price"],
-            "목표금액(원)": int(item["target_amount"]),
+            "비중": item["weight"] * 100,
+            "현재가(원)": format_money(item["current_price"]),
+            "목표금액(원)": format_money(item["target_amount"]),
             "정수매수(주)": item["integer_shares"],
             "소수점(참고)": item["fractional_shares"],
-            "실제투자금(원)": int(item["actual_amount"]),
-            "잔여금(원)": int(item["leftover"]),
+            "실제투자금(원)": format_money(item["actual_amount"]),
+            "잔여금(원)": format_money(item["leftover"]),
         })
 
     df = pd.DataFrame(rows)
@@ -319,13 +319,13 @@ def render_allocation_table(allocation_result: dict) -> None:
         use_container_width=True,
         hide_index=True,
         column_config={
-            "비중": st.column_config.ProgressColumn("비중", min_value=0, max_value=1, format="%.1f%%"),
-            "현재가(원)": st.column_config.NumberColumn("현재가(원)", format="%d"),
-            "목표금액(원)": st.column_config.NumberColumn("목표금액(원)", format="%d"),
+            "비중": st.column_config.ProgressColumn("비중", min_value=0, max_value=100, format="%.1f%%"),
+            "현재가(원)": st.column_config.TextColumn("현재가(원)"),
+            "목표금액(원)": st.column_config.TextColumn("목표금액(원)"),
             "정수매수(주)": st.column_config.NumberColumn("정수매수(주)", format="%d"),
             "소수점(참고)": st.column_config.NumberColumn("소수점(참고)", format="%.4f"),
-            "실제투자금(원)": st.column_config.NumberColumn("실제투자금(원)", format="%d"),
-            "잔여금(원)": st.column_config.NumberColumn("잔여금(원)", format="%d"),
+            "실제투자금(원)": st.column_config.TextColumn("실제투자금(원)"),
+            "잔여금(원)": st.column_config.TextColumn("잔여금(원)"),
         },
     )
 

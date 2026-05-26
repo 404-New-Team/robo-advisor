@@ -55,15 +55,18 @@ adjusted_weights = {
     for _, row in edited_df.iterrows()
 }
 order_df = get_order_preview(adjusted_weights, state["investment_amount"])
+order_display_df = order_df.copy()
+order_display_df["목표 비중"] = (order_display_df["목표 비중"] * 100).round(1)
+order_display_df["매수 금액"] = order_display_df["매수 금액"].map(format_money)
 
 st.subheader("주문 미리보기")
 st.dataframe(
-    order_df,
+    order_display_df,
     use_container_width=True,
     hide_index=True,
     column_config={
-        "목표 비중": st.column_config.ProgressColumn("목표 비중", min_value=0, max_value=1, format="%.1f%%"),
-        "매수 금액": st.column_config.NumberColumn("매수 금액", format="%d원"),
+        "목표 비중": st.column_config.ProgressColumn("목표 비중", min_value=0, max_value=100, format="%.1f%%"),
+        "매수 금액": st.column_config.TextColumn("매수 금액"),
     },
 )
 

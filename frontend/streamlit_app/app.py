@@ -65,11 +65,13 @@ with right:
 tab_summary, tab_research, tab_simulation = st.tabs(["포트폴리오", "리서치 근거", "시뮬레이션"])
 
 with tab_summary:
+    display_weight_df = weight_df.copy()
+    display_weight_df["비중"] = (display_weight_df["비중"] * 100).round(1)
     st.dataframe(
-        weight_df,
+        display_weight_df,
         use_container_width=True,
         hide_index=True,
-        column_config={"비중": st.column_config.ProgressColumn("비중", min_value=0, max_value=1, format="%.1f%%")},
+        column_config={"비중": st.column_config.ProgressColumn("비중", min_value=0, max_value=100, format="%.1f%%")},
     )
     metric_cols = st.columns(4)
     metrics = backtest_result["metrics"]
