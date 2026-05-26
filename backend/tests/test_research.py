@@ -51,3 +51,21 @@ def test_research_without_ticker(client):
     with patch("app.routers.research.call_research", new_callable=AsyncMock, return_value=result):
         response = client.post("/research", json=request_no_ticker)
     assert response.status_code == 200
+
+
+def test_research_forwards_portfolio_context(client):
+    request = {
+        **VALID_REQUEST,
+        "portfolio_context": {
+            "risk_level": "moderate",
+            "investment_amount": 30000000,
+            "selected_tickers": ["005930", "000660"],
+            "excluded_tickers": [],
+            "active_tickers": ["005930", "000660"],
+            "weights": {"005930": 0.6, "000660": 0.4},
+        },
+    }
+    with patch("app.routers.research.call_research", new_callable=AsyncMock, return_value=MOCK_RESEARCH_RESULT) as mocked:
+        response = client.post("/research", json=request)
+    assert response.status_code == 200
+    assert mocked.await_args.args[0]["portfolio_context"]["active_tickers"] == ["005930", "000660"]

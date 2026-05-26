@@ -142,9 +142,19 @@ def get_simulation_paths() -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def get_research_response(ticker: str | None = "005930", query: str | None = None, max_results: int = 5) -> dict:
+def get_research_response(
+    ticker: str | None = "005930",
+    query: str | None = None,
+    max_results: int = 5,
+    portfolio_context: dict | None = None,
+) -> dict:
     target = ticker or "포트폴리오"
     now = datetime.now(timezone.utc)
+    active_tickers = (portfolio_context or {}).get("active_tickers") or []
+    weights = (portfolio_context or {}).get("weights") or {}
+    weight_text = ", ".join(f"{ticker}:{weights[ticker] * 100:.1f}%" for ticker in active_tickers if ticker in weights)
+    context_text = f" 보유 종목 {', '.join(active_tickers)} 기준입니다." if active_tickers else ""
+    weight_suffix = f" 추천 비중은 {weight_text}입니다." if weight_text else ""
     sources = [
         {
             "title": "반도체 수요 회복과 고대역폭 메모리 투자 확대",
@@ -180,7 +190,7 @@ def get_research_response(ticker: str | None = "005930", query: str | None = Non
     return {
         "status": "success",
         "ticker": ticker,
-        "summary": f"{target} 관련 최근 리서치에서 성장 모멘텀은 유지되지만 정책 및 밸류에이션 리스크가 동시에 감지되었습니다.",
+        "summary": f"{target} 관련 최근 리서치에서 성장 모멘텀은 유지되지만 정책 및 밸류에이션 리스크가 동시에 감지되었습니다.{context_text}{weight_suffix}",
         "risk_events": [
             {
                 "type": "regulation_change",

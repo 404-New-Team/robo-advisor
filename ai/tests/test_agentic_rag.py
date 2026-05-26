@@ -61,3 +61,47 @@ def test_agentic_rag_uses_local_chromadb_citations(tmp_path):
     assert result["citations"][0]["url"].startswith("https://example.com/")
     assert result["risk_tags"]
     assert result["reasoning_trace"]
+
+
+class CapturingNewsStore:
+    def __init__(self):
+        self.queries = []
+
+    def search(self, query, n=5):
+        self.queries.append(query)
+        ticker = "005930" if "005930" in query else "000660"
+        return [
+            {
+                "text": f"{query} earnings regulation market risk portfolio weight evidence",
+                "metadata": {
+                    "id": query,
+                    "title": f"{ticker} portfolio risk news",
+                    "source": "Example Finance",
+                    "published": "2026-05-01",
+                    "url": f"https://example.com/{ticker}",
+                },
+                "score": 0.9,
+            }
+        ]
+
+
+def test_agentic_rag_expands_portfolio_context_queries(monkeypatch):
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    store = CapturingNewsStore()
+    agent = AgenticRAGResearchAgent(news_store=store, config=AgenticRAGConfig(n_results=3))
+    context = {
+        "risk_level": "moderate",
+        "investment_amount": 30000000,
+        "selected_tickers": ["005930", "000660"],
+        "excluded_tickers": [],
+        "active_tickers": ["005930", "000660"],
+        "weights": {"005930": 0.6, "000660": 0.4},
+        "ticker_names": {"005930": "삼성전자", "000660": "SK하이닉스"},
+    }
+
+    result = agent.run_research("현재 포트폴리오 리스크 요약", portfolio_context=context)
+
+    assert any("005930" in query for query in store.queries)
+    assert any("000660" in query for query in store.queries)
+    assert "포트폴리오 구성/비중 기준" in result["answer"]
+    assert "삼성전자 005930 60.0%" in result["answer"]

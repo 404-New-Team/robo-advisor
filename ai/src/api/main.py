@@ -41,18 +41,62 @@ TIMEOUT_BACKTEST = 60.0
 
 # ─── 전역 상태 ─────────────────────────────────────────────────────────────────
 _ppo_model: Any = None       # stable_baselines3.PPO
+_ppo_tickers: list[str] = []  # PPO 학습 시 사용한 티커 순서 (settings.yaml 기준)
 _research_agent: Any = None  # AgenticRAGResearchAgent
+_research_agent_error: str = ""
 _prices_cache: dict[str, pd.DataFrame] = {}
 
 _global_risk_state: Any = None  # /ai/research 호출 시 업데이트, /ai/optimize·shap에서 공유
 
 
+class ResearchAgentUnavailable(RuntimeError):
+    pass
+
+
+def _init_research_agent() -> Any:
+    global _research_agent, _research_agent_error
+
+    if _research_agent is not None:
+        return _research_agent
+
+    try:
+        from ..research.agentic_rag import AgenticRAGResearchAgent
+
+        _research_agent = AgenticRAGResearchAgent()
+        _research_agent_error = ""
+        logger.info("Research Agent 초기화 완료")
+        return _research_agent
+    except Exception as exc:
+        _research_agent_error = str(exc)
+        logger.warning(f"Research Agent 초기화 실패: {exc}")
+        return None
+
+
+def _get_research_agent() -> Any:
+    agent = _init_research_agent()
+    if agent is None:
+        detail = _research_agent_error or "알 수 없는 초기화 오류"
+        raise ResearchAgentUnavailable(f"Research Agent 초기화 실패: {detail}")
+    return agent
+
+
 # ─── Lifespan: 서버 시작 시 모델 사전 로딩 ─────────────────────────────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global _ppo_model, _research_agent, _global_risk_state
+    global _ppo_model, _ppo_tickers, _global_risk_state
     from ..envs.risk_state import RiskState
     _global_risk_state = RiskState()
+
+    # ── settings.yaml에서 학습 티커 로딩 ─────────────────────────────────────
+    try:
+        import yaml
+        settings_path = APP_DIR / "src" / "config" / "settings.yaml"
+        with open(settings_path, encoding="utf-8") as f:
+            cfg = yaml.safe_load(f)
+        _ppo_tickers = cfg.get("environment", {}).get("tickers", [])
+        logger.info(f"학습 티커 로딩 완료: {_ppo_tickers}")
+    except Exception as exc:
+        logger.warning(f"settings.yaml 로딩 실패: {exc}")
 
     # ── 데이터 관련 모듈 사전 임포트 (첫 요청 지연 방지) ──────────────────────
     try:
@@ -79,13 +123,7 @@ async def lifespan(app: FastAPI):
     else:
         logger.info("PPO 체크포인트 없음 → MVO 폴백 사용")
 
-    # ── Research Agent 초기화 ─────────────────────────────────────────────────
-    try:
-        from ..research.agentic_rag import AgenticRAGResearchAgent
-        _research_agent = AgenticRAGResearchAgent()
-        logger.info("Research Agent 초기화 완료")
-    except Exception as exc:
-        logger.warning(f"Research Agent 초기화 실패: {exc}")
+    _init_research_agent()
 
     yield
 
@@ -335,6 +373,7 @@ class ResearchRequest(BaseModel):
     query: str
     ticker: Optional[str] = None
     max_results: int = Field(5, ge=1, le=20)
+    portfolio_context: dict[str, Any] | None = None
 
 
 class BacktestRequest(BaseModel):
@@ -352,6 +391,7 @@ def health() -> dict:
         "rl_engine": _ppo_model is not None,
         "rl_checkpoint": str(_find_checkpoint() or "없음"),
         "rag_agent": _research_agent is not None,
+        "rag_agent_error": _research_agent_error,
         "shap_explainer": True,
         "timestamp": _utc_now(),
     }
@@ -381,14 +421,8 @@ async def optimize(req: OptimizeRequest):
         # ── 비중 결정: PPO 우선 → MVO 폴백 ───────────────────────────────────
         weights: np.ndarray
         use_ppo = False
-        if _ppo_model is not None:
-            # 관측 공간 크기 호환성 확인
-            expected = _ppo_model.observation_space.shape[0]
-            actual = n * 11 + 5 + n  # n_assets*11 + n_tags + n_assets
-            use_ppo = (expected == actual)
-            if not use_ppo:
-                logger.info(f"PPO 관측 공간 불일치 (학습={expected}, 현재={actual}) → MVO 폴백")
 
+<<<<<<< HEAD
         if use_ppo:
             try:
                 env = PortfolioEnv(prices=prices, risk_state=_global_risk_state or RiskState(), window_size=window)
@@ -402,6 +436,39 @@ async def optimize(req: OptimizeRequest):
                 weights = mvo.get_weights().astype(float)
         else:
             mvo = MVO(MVOConfig(weight_min=_mvo_weight_min(n, req.risk_level)))
+=======
+        if _ppo_model is not None and _ppo_tickers:
+            req_set = set(tickers)
+            train_set = set(_ppo_tickers)
+            if req_set.issubset(train_set):
+                # 요청 티커가 학습 티커 범위 내 → 학습 티커 전체로 env 빌드 후 부분 추출
+                try:
+                    train_prices = _get_or_fetch_prices(_ppo_tickers, req.start_date, req.end_date)
+                    if not train_prices.empty and len(train_prices) >= 30:
+                        train_window = min(20, len(train_prices) // 3)
+                        env = PortfolioEnv(
+                            prices=train_prices,
+                            risk_state=_global_risk_state or RiskState(),
+                            window_size=train_window,
+                        )
+                        obs, _ = env.reset()
+                        action, _ = _ppo_model.predict(obs, deterministic=True)
+                        all_weights = env._softmax(action)
+                        # 요청 티커에 해당하는 인덱스만 추출 → 재정규화
+                        idx = [_ppo_tickers.index(t) for t in tickers]
+                        sub = all_weights[idx]
+                        weights = (sub / sub.sum()).astype(float)
+                        use_ppo = True
+                        logger.info(f"PPO 예측 성공: 학습={len(_ppo_tickers)}종목 → 요청={n}종목 추출")
+                except Exception as exc:
+                    logger.warning(f"PPO 예측 실패 → MVO 폴백: {exc}")
+            else:
+                outside = req_set - train_set
+                logger.info(f"PPO 폴백: 요청 티커 {outside}가 학습 범위 밖 → MVO 사용")
+
+        if not use_ppo:
+            mvo = MVO(MVOConfig())
+>>>>>>> origin/develop
             mvo.fit(prices)
             weights = mvo.get_weights().astype(float)
 
@@ -667,17 +734,22 @@ async def research(req: ResearchRequest):
         return _error(400, "query가 비어 있습니다.", "투자 관련 질문을 입력하세요.")
 
     def _compute():
-        if _research_agent is None:
-            raise RuntimeError("Research Agent가 초기화되지 않았습니다.")
+        agent = _get_research_agent()
 
         # n_results 동적 반영
-        _research_agent.config.n_results = req.max_results
+        agent.config.n_results = req.max_results
 
-        report = _research_agent.run(query=req.query.strip(), ticker=req.ticker)
+        report = agent.run(
+            query=req.query.strip(),
+            ticker=req.ticker,
+            portfolio_context=req.portfolio_context,
+        )
         return report
 
     try:
         report = await _run(_compute, timeout=TIMEOUT_RESEARCH)
+    except ResearchAgentUnavailable as exc:
+        return _error(503, "리서치 준비 실패", str(exc))
     except Exception as exc:
         return _error(400, "리서치 실패", str(exc))
 
