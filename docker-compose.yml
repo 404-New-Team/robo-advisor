@@ -44,6 +44,7 @@ services:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       KRX_ID: ${KRX_ID:-}
       KRX_PW: ${KRX_PW:-}
+      KRX_OPENAPI_KEY: ${KRX_OPENAPI_KEY:-}
     volumes:
       - ./ai/checkpoints:/app/checkpoints
       - ./ai/experiments/results:/app/experiments/results

@@ -510,13 +510,38 @@ async def shap_explain(req: ShapRequest):
             action, _ = _local_ppo.predict(target_obs, deterministic=True)
             final_weight = float(env._softmax(action.astype(np.float32))[target_idx])
         else:
-            # MVO 기반 예측 대리 함수
+            # MVO 기반 예측 대리 함수 — 롤링 윈도우로 다양한 가중치 생성 후 Ridge 회귀
+            from sklearn.linear_model import Ridge
+
             _mvo = MVO(MVOConfig())
             _mvo.fit(prices)
             _w = _mvo.get_weights()
-            def predict_fn(batch: np.ndarray) -> np.ndarray:
-                return np.tile(_w, (len(batch), 1))
             final_weight = float(_w[target_idx])
+
+            # 롤링 윈도우마다 MVO 재최적화 → (obs, weight) 쌍 수집
+            step_size = max(1, len(prices) // 40)
+            win = max(30, len(prices) // 4)
+            scenario_obs, scenario_weights = [], []
+            env2 = PortfolioEnv(prices=prices, risk_state=_global_risk_state or RiskState(), window_size=window)
+            obs2, _ = env2.reset()
+            for step_i in range(min(len(obs_list), len(env2.valid_dates))):
+                end_i = min(len(prices), win + step_i * step_size)
+                start_i = max(0, end_i - win)
+                try:
+                    _mvo_tmp = MVO(MVOConfig())
+                    _mvo_tmp.fit(prices.iloc[start_i:end_i])
+                    scenario_obs.append(obs_list[min(step_i, len(obs_list) - 1)])
+                    scenario_weights.append(_mvo_tmp.get_weights())
+                except Exception:
+                    pass
+
+            if len(scenario_obs) >= 3:
+                reg = Ridge(alpha=1.0).fit(np.array(scenario_obs), np.array(scenario_weights))
+                def predict_fn(batch: np.ndarray) -> np.ndarray:
+                    return reg.predict(batch)
+            else:
+                def predict_fn(batch: np.ndarray) -> np.ndarray:
+                    return np.tile(_w, (len(batch), 1))
 
         # ── KernelExplainer (nsamples=50 빠른 근사) ───────────────────────────
         bg_sample = shap_lib.sample(background, min(10, len(background)))

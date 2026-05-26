@@ -1,3 +1,5 @@
+import os
+
 import pandas as pd
 import yfinance as yf
 from pathlib import Path
@@ -8,6 +10,41 @@ CACHE_DIR = Path(__file__).parent.parent / ".cache" / "market"
 def _is_krx(ticker: str) -> bool:
     """6자리 숫자면 KRX 종목으로 판별."""
     return ticker.isdigit() and len(ticker) == 6
+
+
+def _fetch_krx_openapi(tickers: list, start: str, end: str) -> pd.DataFrame:
+    """pykrx-openapi로 KRX 데이터 수집 (KRX_OPENAPI_KEY 환경 변수 필요)."""
+    from pykrx_openapi import KRXOpenAPI
+
+    client = KRXOpenAPI(api_key=os.environ["KRX_OPENAPI_KEY"])
+    start_str = start.replace("-", "")
+    end_str = end.replace("-", "")
+
+    frames = {}
+    for ticker in tickers:
+        rows = []
+        # 날짜 범위를 하루씩 순회하며 수집
+        dates = pd.date_range(start, end, freq="B")  # 영업일
+        for date in dates:
+            bas_dd = date.strftime("%Y%m%d")
+            try:
+                df = client.get_market_ohlcv(bas_dd=bas_dd, ticker=ticker)
+                if df is not None and not df.empty:
+                    close = df["TDD_CLSPRC"].iloc[0] if "TDD_CLSPRC" in df.columns else None
+                    if close is not None:
+                        rows.append({"Date": date, "종가": int(str(close).replace(",", ""))})
+            except Exception:
+                pass
+        if rows:
+            s = pd.DataFrame(rows).set_index("Date")["종가"]
+            frames[ticker] = s
+
+    if not frames:
+        raise ValueError(f"pykrx-openapi: 데이터 없음. 티커={tickers}")
+
+    result = pd.DataFrame(frames)
+    result.index.name = "Date"
+    return result
 
 
 def _fetch_krx(tickers: list, start: str, end: str) -> pd.DataFrame:
@@ -94,7 +131,13 @@ def fetch_prices(tickers: list, start: str, end: str, use_cache: bool = True) ->
     if yf_tickers:
         parts.append(_fetch_yfinance(yf_tickers, start, end))
     if krx_tickers:
-        parts.append(_fetch_krx(krx_tickers, start, end))
+        if os.environ.get("KRX_OPENAPI_KEY"):
+            try:
+                parts.append(_fetch_krx_openapi(krx_tickers, start, end))
+            except Exception:
+                parts.append(_fetch_krx(krx_tickers, start, end))
+        else:
+            parts.append(_fetch_krx(krx_tickers, start, end))
 
     if len(parts) == 1:
         prices = parts[0]

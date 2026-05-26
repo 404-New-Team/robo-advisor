@@ -10,7 +10,7 @@ except ImportError:
 
 
 API_BASE_URL = (os.getenv("API_BASE_URL") or os.getenv("ROBBY_API_BASE_URL", "http://localhost:8000")).rstrip("/")
-REQUEST_TIMEOUT = float(os.getenv("ROBBY_API_TIMEOUT", "8"))
+REQUEST_TIMEOUT = float(os.getenv("ROBBY_API_TIMEOUT", "30"))
 USE_MOCK = os.getenv("ROBBY_USE_MOCK", "false").lower() == "true"
 
 
