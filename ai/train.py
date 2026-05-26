@@ -112,8 +112,8 @@ def main():
     train_cfg = cfg["training"]
 
     print("데이터 로드 중...")
-    train_prices = fetch_prices(env_cfg["tickers"], start="2019-01-01", end="2025-06-30")
-    eval_prices  = fetch_prices(env_cfg["tickers"], start="2025-07-01", end="2026-05-01")
+    train_prices = fetch_prices(env_cfg["tickers"], start="2019-01-01", end="2023-12-31")
+    eval_prices  = fetch_prices(env_cfg["tickers"], start="2024-01-01", end="2024-12-31")
     print(f"  학습: {len(train_prices)}행  |  평가: {len(eval_prices)}행")
 
     n_envs    = train_cfg.get("n_envs", 1)
@@ -138,7 +138,7 @@ def main():
     print("\n학습 곡선 저장 중...")
     plot_learning_curve(logger, CHECKPOINT_DIR / "learning_curve.png")
 
-    print("\n평가 중 (2025-07 ~ 2026-05 데이터)...")
+    print("\n평가 중 (2024년 데이터)...")
     mean_reward, mean_value = evaluate(agent, eval_env)
     bnh_value = buy_and_hold_value(eval_prices)
 

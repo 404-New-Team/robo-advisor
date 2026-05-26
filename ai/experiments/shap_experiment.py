@@ -87,7 +87,7 @@ def main():
     tickers = env_cfg["tickers"]
 
     print("시장 데이터 로딩 중...")
-    prices = fetch_prices(tickers, start="2019-01-01", end="2026-05-01")
+    prices = fetch_prices(tickers, start="2023-01-01", end="2024-12-31")
     print(f"  shape={prices.shape}  기간={prices.index[0].date()} ~ {prices.index[-1].date()}")
 
     env = PortfolioEnv(

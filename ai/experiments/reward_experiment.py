@@ -78,8 +78,8 @@ def main():
     print("데이터 로드 중...")
     prices = fetch_prices(
         tickers=["AAPL", "MSFT", "GOOGL", "AMZN", "META"],
-        start="2019-01-01",
-        end="2026-05-01",
+        start="2022-01-01",
+        end="2023-12-31",
     )
     print(f"  {len(prices)}행 로드 완료\n")
 

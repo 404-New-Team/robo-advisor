@@ -800,23 +800,26 @@ async def backtest(req: BacktestRequest):
 
         # ── equal_weight ────────────────────────────────────────────────────
         if req.strategy == "equal_weight":
+            from ..backtest.mvo import _build_fold_dates
             rets = log_returns(prices)
             weights = np.ones(n) / n
             port_rets = (rets.values * weights).sum(axis=1)
             pv = np.insert(np.cumprod(1 + port_rets), 0, 1.0)
             metrics = compute_metrics(daily_returns=port_rets.tolist(), portfolio_values=pv.tolist())
+            cfg = WalkForwardConfig(train_months=24, test_months=6, step_months=6)
+            folds_dates = _build_fold_dates(prices, cfg)
             fold_data: list[dict] = []
-            # 6개월 단위 fold 요약 (가짜 폴드: 단순 분할)
-            chunks = np.array_split(port_rets, max(2, len(port_rets) // 126))
-            for i, chunk in enumerate(chunks):
+            for _, (_, _, test_start, test_end) in enumerate(folds_dates):
+                test_prices = prices.loc[(prices.index >= test_start) & (prices.index <= test_end)]
+                test_rets = test_prices.pct_change().dropna()
+                chunk = (test_rets.values * weights).sum(axis=1)
                 if len(chunk) < 2:
                     continue
                 cpv = np.insert(np.cumprod(1 + chunk), 0, 1.0)
                 cm = compute_metrics(daily_returns=chunk.tolist(), portfolio_values=cpv.tolist())
-                chunk_start_idx = sum(len(c) for c in chunks[:i])
                 fold_data.append({
-                    "test_start": str(rets.index[chunk_start_idx].date()),
-                    "test_end": str(rets.index[min(chunk_start_idx + len(chunk) - 1, len(rets) - 1)].date()),
+                    "test_start": str(test_start.date() if hasattr(test_start, "date") else test_start),
+                    "test_end": str(test_end.date() if hasattr(test_end, "date") else test_end),
                     "total_return": _safe_float(cm.total_return),
                     "sharpe": _safe_float(cm.sharpe),
                 })

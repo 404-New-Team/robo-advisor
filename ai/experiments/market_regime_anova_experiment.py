@@ -45,7 +45,7 @@ def _numpy_default(obj):
 def main():
     parser = argparse.ArgumentParser(description="Two-way ANOVA: 전략 × 시장 국면")
     parser.add_argument("--start",          type=str,   default="2019-01-01")
-    parser.add_argument("--end",            type=str,   default="2026-05-01")
+    parser.add_argument("--end",            type=str,   default="2024-12-31")
     parser.add_argument("--train_months",   type=int,   default=24)
     parser.add_argument("--test_months",    type=int,   default=6)
     parser.add_argument("--step_months",    type=int,   default=6)
