@@ -77,7 +77,11 @@ def _fetch_krx(tickers: list, start: str, end: str) -> pd.DataFrame:
                 raw = yf.download(f"{ticker}.KS", start=start, end=end,
                                   auto_adjust=True, progress=False)
                 if not raw.empty:
-                    close = raw["Close"] if "Close" in raw.columns else raw.iloc[:, 0]
+                    # yfinance 버전에 따라 MultiIndex 또는 flat columns 반환
+                    if isinstance(raw.columns, pd.MultiIndex):
+                        close = raw.xs("Close", level=0, axis=1).iloc[:, 0]
+                    else:
+                        close = raw["Close"]
                     df = close.rename("종가").to_frame()
             except Exception:
                 pass
@@ -131,21 +135,16 @@ def fetch_prices(tickers: list, start: str, end: str, use_cache: bool = True) ->
     if yf_tickers:
         parts.append(_fetch_yfinance(yf_tickers, start, end))
     if krx_tickers:
-        if os.environ.get("KRX_OPENAPI_KEY"):
-            try:
-                parts.append(_fetch_krx_openapi(krx_tickers, start, end))
-            except Exception:
-                parts.append(_fetch_krx(krx_tickers, start, end))
-        else:
-            parts.append(_fetch_krx(krx_tickers, start, end))
+        parts.append(_fetch_krx(krx_tickers, start, end))
 
     if len(parts) == 1:
         prices = parts[0]
     else:
         prices = parts[0].join(parts[1], how="inner")
 
-    # 원래 순서 유지, 결측치 처리
-    prices = prices[tickers].dropna(how="all").ffill().dropna()
+    # 데이터 수집에 성공한 티커만 사용 (실패 티커 조용히 제외)
+    available = [t for t in tickers if t in prices.columns]
+    prices = prices[available].dropna(how="all").ffill().dropna()
 
     if use_cache:
         CACHE_DIR.mkdir(parents=True, exist_ok=True)

@@ -357,10 +357,6 @@ class AgenticRAGResearchAgent:
     def _verify(self, state: ResearchState) -> ResearchState:
         """생성된 답변의 품질을 검증한다."""
         answer = state.get("answer", "")
-        if self.llm_generate is not None and answer:
-            state["answer_verified"] = True
-            state.setdefault("trace", []).append("verify: pass(custom_llm_generate)")
-            return state
         citations = state.get("citations", [])
         risk_tags = state.get("risk_tags", [])
         reasons: list[str] = []
