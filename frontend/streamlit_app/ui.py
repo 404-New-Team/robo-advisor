@@ -262,13 +262,53 @@ def strategy_comparison_from_results(results: list[dict]) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+SHAP_FEATURE_LABELS = {
+    "momentum_7d": "7일 모멘텀",
+    "volatility_30d": "30일 변동성",
+    "news_risk_score": "뉴스 리스크 점수",
+    "rsi": "RSI",
+    "market_cap_weight": "시가총액 비중",
+    "regulatory_risk": "규제 리스크",
+    "earnings_shock": "실적 충격 리스크",
+    "geopolitical_risk": "지정학 리스크",
+    "market_stress": "시장 변동성 리스크",
+    "liquidity_risk": "유동성 리스크",
+}
+
+SHAP_SUFFIX_LABELS = {
+    "ret1d": "1일 수익률",
+    "ret5d": "5일 수익률",
+    "ret20d": "20일 수익률",
+    "vol20d": "20일 변동성",
+    "mom20d": "20일 모멘텀",
+    "rsi14": "RSI(14일)",
+    "macd_signal": "MACD 신호선",
+    "macd": "MACD",
+    "bb_upper": "볼린저 상단",
+    "bb_lower": "볼린저 하단",
+    "bb_position": "볼린저 위치",
+}
+
+
+def format_shap_feature(feature: str) -> str:
+    if feature in SHAP_FEATURE_LABELS:
+        return SHAP_FEATURE_LABELS[feature]
+    if feature.startswith("weight_"):
+        return f"{feature.removeprefix('weight_')} 현재 비중"
+    for suffix, label in sorted(SHAP_SUFFIX_LABELS.items(), key=lambda item: len(item[0]), reverse=True):
+        marker = f"_{suffix}"
+        if feature.endswith(marker):
+            return f"{feature[:-len(marker)]} {label}"
+    return feature.replace("_", " ")
+
+
 def shap_summary_from_results(results: list[dict]) -> pd.DataFrame:
     rows = []
     for result in results:
         asset = result.get("target_asset", "")
         for feature, value in result.get("shap_values", {}).items():
-            rows.append({"종목": asset, "피처": feature, "기여도": value})
-    return pd.DataFrame(rows, columns=["종목", "피처", "기여도"])
+            rows.append({"종목": asset, "피처": format_shap_feature(feature), "원본 피처": feature, "기여도": value})
+    return pd.DataFrame(rows, columns=["종목", "피처", "원본 피처", "기여도"])
 
 
 def simulation_chart(df: pd.DataFrame):

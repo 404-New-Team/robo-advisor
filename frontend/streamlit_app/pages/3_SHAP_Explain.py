@@ -9,7 +9,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from api_client import explain
 from reference_data import get_default_tickers, get_universe
-from ui import COLOR_SEQUENCE, configure_page, format_percent, load_api_data, render_sidebar, shap_summary_from_results
+from ui import COLOR_SEQUENCE, configure_page, format_percent, format_shap_feature, load_api_data, render_sidebar, shap_summary_from_results
 
 
 configure_page("SHAP 해석")
@@ -26,8 +26,11 @@ target = st.selectbox(
 )
 result = load_api_data("SHAP 해석", explain, state["active_tickers"], target, token=state["access_token"])
 shap_df = pd.DataFrame(
-    [{"피처": key, "기여도": value, "방향": "확대" if value >= 0 else "축소"} for key, value in result["shap_values"].items()],
-    columns=["피처", "기여도", "방향"],
+    [
+        {"피처": format_shap_feature(key), "원본 피처": key, "기여도": value, "방향": "확대" if value >= 0 else "축소"}
+        for key, value in result["shap_values"].items()
+    ],
+    columns=["피처", "원본 피처", "기여도", "방향"],
 ).sort_values("기여도")
 
 cols = st.columns(3)
