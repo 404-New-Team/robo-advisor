@@ -199,7 +199,7 @@ def render_metric_row(metrics: dict) -> None:
 
 
 def allocation_chart(weight_df: pd.DataFrame):
-    chart_df = weight_df.copy()
+    chart_df = weight_df[weight_df["비중"] > 0].copy()  # 0% 종목은 파이 차트에서 제외
     chart_df["표시명"] = chart_df["종목"] + " " + chart_df["티커"]
     fig = px.pie(
         chart_df,

@@ -6,6 +6,7 @@ from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, Any, Callable, Optional, TypedDict
 
 from ..envs.risk_state import RiskTag
+from .risk_detector import RiskDetector
 
 if TYPE_CHECKING:
     from .news_store import NewsStore
@@ -152,6 +153,7 @@ class AgenticRAGResearchAgent:
         self.news_store = news_store
         self.config = config or AgenticRAGConfig()
         self.llm_generate = llm_generate
+        self.risk_detector = RiskDetector() if os.environ.get("ANTHROPIC_API_KEY") else None
         self.graph = self._build_graph()
 
     def run_research(self, query: str, ticker: Optional[str] = None) -> dict[str, Any]:
@@ -332,7 +334,11 @@ class AgenticRAGResearchAgent:
     def _analyze(self, state: ResearchState) -> ResearchState:
         docs = state.get("retrieved", [])[: self.config.n_results]
         citations = [self._to_citation(doc, idx) for idx, doc in enumerate(docs, start=1)]
-        risk_tags = self._infer_risk_tags(docs)
+        if self.risk_detector is not None:
+            news_texts = [doc.get("text", "") for doc in docs if doc.get("text")]
+            risk_tags = self.risk_detector.detect(news_texts)
+        else:
+            risk_tags = self._infer_risk_tags(docs)
 
         if self.llm_generate is not None:
             answer = self.llm_generate(state["original_query"], docs, citations)

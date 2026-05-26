@@ -34,10 +34,10 @@ logger = logging.getLogger(__name__)
 _executor = ThreadPoolExecutor(max_workers=4)
 
 # 엔드포인트별 타임아웃 (초)
-TIMEOUT_OPTIMIZE = 4.0
-TIMEOUT_SHAP = 10.0   # KernelExplainer 계산 여유
-TIMEOUT_RESEARCH = 25.0  # LLM 호출 포함 가능
-TIMEOUT_BACKTEST = 60.0  # Walk-Forward 훈련 포함
+TIMEOUT_OPTIMIZE = 30.0
+TIMEOUT_SHAP = 30.0
+TIMEOUT_RESEARCH = 30.0
+TIMEOUT_BACKTEST = 60.0
 
 # ─── 전역 상태 ─────────────────────────────────────────────────────────────────
 _ppo_model: Any = None       # stable_baselines3.PPO
@@ -160,6 +160,13 @@ def _get_or_fetch_prices(tickers: list[str], start: str, end: str) -> pd.DataFra
     if key not in _prices_cache:
         _prices_cache[key] = fetch_prices(tickers, start, end, use_cache=True)
     return _prices_cache[key]
+
+
+def _mvo_weight_min(n_assets: int, risk_level: str) -> float:
+    """종목 수와 risk_level에 따라 MVO 최소 비중 결정. 분산투자 강제."""
+    base = {"low": 0.05, "moderate": 0.03, "high": 0.02}.get(risk_level, 0.03)
+    # 최소 비중 합이 1을 초과하지 않도록 조정
+    return min(base, 0.9 / max(n_assets, 1))
 
 
 def _apply_risk_cap(weights: np.ndarray, risk_level: str) -> np.ndarray:
@@ -390,11 +397,11 @@ async def optimize(req: OptimizeRequest):
                 weights = env._softmax(action).astype(float)
             except Exception as exc:
                 logger.warning(f"PPO 예측 실패 → MVO 폴백: {exc}")
-                mvo = MVO(MVOConfig())
+                mvo = MVO(MVOConfig(weight_min=_mvo_weight_min(n, req.risk_level)))
                 mvo.fit(prices)
                 weights = mvo.get_weights().astype(float)
         else:
-            mvo = MVO(MVOConfig())
+            mvo = MVO(MVOConfig(weight_min=_mvo_weight_min(n, req.risk_level)))
             mvo.fit(prices)
             weights = mvo.get_weights().astype(float)
 
