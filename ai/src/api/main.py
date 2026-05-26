@@ -408,6 +408,25 @@ async def optimize(req: OptimizeRequest):
         pv = np.insert(pv, 0, 1.0)
         metrics = compute_metrics(daily_returns=port_rets.tolist(), portfolio_values=pv.tolist())
 
+        # ── risk_tags: 전역 리스크 상태 → 백엔드 스키마 형식 변환 ──────────────
+        def _level_to_severity(level: float) -> str:
+            if level >= 0.7:
+                return "high"
+            elif level >= 0.4:
+                return "moderate"
+            return "low"
+
+        risk_tags = []
+        if _global_risk_state is not None:
+            for tag_name, tag_level in _global_risk_state._levels.items():
+                if tag_level > 0.2:
+                    risk_tags.append({
+                        "asset": "market",
+                        "type": tag_name,
+                        "severity": _level_to_severity(tag_level),
+                        "source": "리서치 에이전트 분석",
+                    })
+
         return {
             "weights": {t: round(float(w), 6) for t, w in zip(tickers, weights)},
             "metrics": {
@@ -416,6 +435,7 @@ async def optimize(req: OptimizeRequest):
                 "max_drawdown": -abs(_safe_float(metrics.max_drawdown)),
                 "volatility": _safe_float(metrics.volatility),
             },
+            "risk_tags": risk_tags,
         }
 
     try:
@@ -577,10 +597,22 @@ async def shap_explain(req: ShapRequest):
         fig_force.tight_layout()
         force_b64 = _fig_to_b64(fig_force)
 
+        # ── explanation: 상위 SHAP 피처 기반 한국어 자연어 설명 생성 ────────────
+        if shap_dict:
+            top_feat = max(shap_dict, key=lambda k: abs(shap_dict[k]))
+            top_val = shap_dict[top_feat]
+            explanation = (
+                f"{req.target_asset}의 비중이 {round(final_weight * 100, 1)}%로 결정된 "
+                f"주요 원인은 {top_feat}({top_val:+.3f})입니다."
+            )
+        else:
+            explanation = f"{req.target_asset}의 비중은 {round(final_weight * 100, 1)}%입니다."
+
         return {
             "target_asset": req.target_asset,
             "final_weight": round(final_weight, 6),
             "shap_values": shap_dict,
+            "explanation": explanation,
             "force_plot_base64": force_b64,
             "summary_plot_base64": summary_b64,
         }
