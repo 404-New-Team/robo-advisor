@@ -22,7 +22,7 @@ class AllocationRequest(BaseModel):
 class AllocationItem(BaseModel):
     ticker: str
     weight: float
-    current_price: int       # KRX 현재가 (원)
+    current_price: int       # 현재가 (KR: pykrx 원화, US: yfinance USD → 원화 환산)
     target_amount: float     # 목표 투자금 = total_amount * weight
     integer_shares: int      # 정수 매수 수량 (floor)
     fractional_shares: float # 소수점 수량 (참고용)
