@@ -93,8 +93,9 @@ with left:
 with right:
     st.subheader("자체 검증")
     st.metric("Self-Correction", f"{result['self_correction_count']}회")
-    for step in result["reasoning_trace"]:
-        st.info(step)
+    trace_log = "\n".join(f"{index:02d}  {step}" for index, step in enumerate(result["reasoning_trace"], start=1))
+    with st.expander("검증 로그", expanded=False):
+        st.code(trace_log or "검증 로그가 없습니다.", language="text")
 
 st.subheader("출처")
 source_df = pd.DataFrame(result["sources"], columns=["title", "url", "published_at", "relevance_score"])
