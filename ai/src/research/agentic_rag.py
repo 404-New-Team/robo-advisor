@@ -365,9 +365,6 @@ class AgenticRAGResearchAgent:
         if len(answer.strip()) < 80:
             reasons.append("answer_too_short")
 
-        # 2. citation이 있는데 답변에서 전혀 참조 안 함
-        if citations and not any(f"[{i}]" in answer for i in range(1, len(citations) + 1)):
-            reasons.append("missing_citation_references")
 
         # 3. 리스크 태그가 탐지됐는데 답변에 언급 없음
         detected_risks = [t["name"] for t in risk_tags if t.get("level", 0) > 0.3]
@@ -453,8 +450,6 @@ class AgenticRAGResearchAgent:
         parts = []
         if "answer_too_short" in reasons:
             parts.append("답변을 더 상세하게 작성하세요 (최소 3문단).")
-        if "missing_citation_references" in reasons:
-            parts.append("반드시 [1], [2] 형식으로 출처를 인용하세요.")
         if "risk_tags_not_reflected" in reasons:
             parts.append("탐지된 리스크 이벤트(규제, 실적, 지정학, 유동성 등)를 답변에 명시하세요.")
         if any("low_quality_score" in r for r in reasons):
@@ -480,12 +475,20 @@ class AgenticRAGResearchAgent:
             f"[{idx}] {doc.get('metadata', {}).get('title', 'Untitled')}\n{doc.get('text', '')[:1000]}"
             for idx, doc in enumerate(docs, start=1)
         )
-        risk_line = ", ".join(f"{t.name}(level={t.level:.2f})" for t in risk_tags if t.level > 0.2)
+        risk_line = ", ".join(
+            f"{self._RISK_NAME_KO.get(t.name, t.name)}(수준={t.level:.2f})"
+            for t in risk_tags if t.level > 0.2
+        ) or "없음"
         prompt = (
-            "Write a corrected Korean investment research report.\n"
-            f"Correction required: {instruction}\n\n"
-            f"Detected risk tags: {risk_line or 'none'}\n\n"
-            f"Question: {query}\n\nSources:\n{context}"
+            "아래 정보를 바탕으로 수정된 한국어 투자 의견을 작성하세요. "
+            "섹션 제목 없이 의견 내용만 출력하세요.\n"
+            f"수정 요구사항: {instruction}\n\n"
+            "작성 기준:\n"
+            "- 탐지된 리스크가 포트폴리오에 미치는 영향을 쉬운 한국어 문장으로 3문장 이상 기술\n"
+            "- 뉴스 제목·출처명·[1] 같은 인용 마커 사용 금지\n"
+            "- 리스크 유형별 의미와 투자자가 취해야 할 행동을 구체적으로 안내\n\n"
+            f"탐지된 리스크 태그: {risk_line}\n\n"
+            f"질문: {query}\n\n출처:\n{context}"
         )
         client = anthropic.Anthropic()
         try:
@@ -505,20 +508,8 @@ class AgenticRAGResearchAgent:
         risk_tags: list[RiskTag],
         instruction: str,
     ) -> str:
-        evidence = "\n".join(
-            f"[{i}] {c.get('title', 'Untitled')} — {c.get('snippet', '')}"
-            for i, c in enumerate(citations, start=1)
-        )
-        risk_line = ", ".join(f"{t.name}({t.level:.2f})" for t in risk_tags if t.level > 0.2) or "없음"
-        return (
-            f"질문: {query}\n\n"
-            "요약: 검색된 금융 뉴스 기반 투자 리서치 보고서입니다.\n\n"
-            "주요 근거:\n" + (evidence or "근거 없음") + "\n\n"
-            f"탐지된 리스크 태그: {risk_line}\n\n"
-            "투자 의견: 위 리스크 요인들을 고려한 포트폴리오 비중 모니터링이 필요합니다. "
-            "규제·실적·지정학 관련 추가 뉴스 발생 시 즉각적인 비중 재조정을 권고합니다.\n\n"
-            f"[수정 사유: {instruction}]"
-        )
+        _, opinion_text = self._build_summary_and_opinion(citations, risk_tags)
+        return opinion_text
 
     def _to_citation(self, item: dict[str, Any], idx: int) -> dict[str, Any]:
         metadata = item.get("metadata", {})
@@ -580,12 +571,19 @@ class AgenticRAGResearchAgent:
             f"[{idx}] {doc.get('metadata', {}).get('title', 'Untitled')}\n{doc.get('text', '')[:1200]}"
             for idx, doc in enumerate(docs, start=1)
         )
+        risk_line = ", ".join(
+            f"{self._RISK_NAME_KO.get(t.name, t.name)}(수준={t.level:.2f})"
+            for t in risk_tags if t.level > 0.2
+        ) or "없음"
         prompt = (
-            "Write a concise Korean investment research report. "
-            "Use bracket citations like [1], [2] tied to the supplied sources. "
-            "Include: summary, key evidence, risk events, and investment view. "
-            "Do not invent facts beyond the sources.\n\n"
-            f"Question: {query}\n\nSources:\n{context}"
+            "아래 정보를 바탕으로 한국어 투자 의견을 작성하세요. "
+            "섹션 제목 없이 의견 내용만 출력하세요.\n\n"
+            "작성 기준:\n"
+            "- 탐지된 리스크가 포트폴리오에 미치는 영향을 쉬운 한국어 문장으로 3문장 이상 기술\n"
+            "- 뉴스 제목·출처명·[1] 같은 인용 마커 사용 금지\n"
+            "- 리스크 유형별 의미와 투자자가 취해야 할 행동을 구체적으로 안내\n\n"
+            f"탐지된 리스크 태그: {risk_line}\n"
+            f"질문: {query}\n\n출처:\n{context}"
         )
         client = anthropic.Anthropic()
         try:
@@ -598,34 +596,83 @@ class AgenticRAGResearchAgent:
         except Exception:
             return self._generate_extractive_report(query, [Citation(**c) for c in citations], risk_tags)
 
+    _RISK_NAME_KO: dict[str, str] = {
+        "regulatory_risk": "규제",
+        "earnings_shock": "실적",
+        "geopolitical_risk": "지정학",
+        "market_stress": "시장 변동성",
+        "liquidity_risk": "유동성",
+    }
+
+    _RISK_DETAIL_KO: dict[str, str] = {
+        "regulatory_risk": "정책·법률 변화가 사업 수익성에 직접 영향을 줄 수 있습니다",
+        "earnings_shock": "실적·매출 변동으로 단기 주가 변동성이 확대될 수 있습니다",
+        "geopolitical_risk": "무역 제재·분쟁 등 지정학적 불확실성이 공급망과 수출 실적에 영향을 줄 수 있습니다",
+        "market_stress": "전반적인 시장 변동성 확대 국면으로 포트폴리오 베타 노출을 점검해야 합니다",
+        "liquidity_risk": "자금 조달 비용 상승 및 부채 구조 변화가 현금 흐름에 부담을 줄 수 있습니다",
+    }
+
+    def _build_summary_and_opinion(
+        self,
+        citations: list,
+        risk_tags: list[RiskTag],
+    ) -> tuple[str, str]:
+        """(요약, 투자 의견) 문자열 쌍 생성 — 리스크 태그 기반 자연어, 인용 마커·출처 제목 없음."""
+        active = [t for t in risk_tags if t.level > 0.2]
+
+        if active:
+            top = max(active, key=lambda t: t.level)
+            top_ko = self._RISK_NAME_KO.get(top.name, top.name)
+            detail = self._RISK_DETAIL_KO.get(top.name, "포트폴리오 영향을 면밀히 점검해야 합니다")
+            other_tags = sorted(
+                [t for t in active if t.name != top.name],
+                key=lambda t: t.level,
+                reverse=True,
+            )
+            other_str = (
+                f" 이와 함께 {', '.join(self._RISK_NAME_KO.get(t.name, t.name) for t in other_tags)} "
+                "리스크도 동시에 모니터링이 필요합니다."
+                if other_tags else ""
+            )
+
+            level_desc = "높음" if top.level >= 0.7 else "중간" if top.level >= 0.4 else "낮음"
+
+            summary = (
+                f"{top_ko} 리스크가 탐지되었습니다(수준: {level_desc}). "
+                "리스크 완화 시그널이 확인되기 전까지 해당 자산의 비중 축소를 권고합니다."
+            )
+            opinion = (
+                f"{detail}. "
+                f"현재 {top_ko} 리스크 수준은 {top.level:.2f}로 {level_desc}으로 평가되며, "
+                "이는 단기적으로 포트폴리오 변동성을 확대시킬 수 있는 요인입니다. "
+                "실적 개선·규제 명확화·시장 안정 등의 완화 시그널이 나타나기 전까지 "
+                f"해당 자산의 비중을 현 수준 이하로 유지할 것을 권고합니다.{other_str} "
+                "향후 관련 동향을 지속 점검하며 비중을 점진적으로 재조정하는 전략을 권고합니다."
+            )
+        else:
+            summary = (
+                "현재 포트폴리오에서 뚜렷한 고위험 신호가 감지되지 않았습니다. "
+                "현 비중을 유지하는 기조를 권고합니다."
+            )
+            opinion = (
+                "분석 결과 즉각적인 대응이 필요한 고위험 이벤트는 관측되지 않았습니다. "
+                "다만 시장 환경은 언제든 변화할 수 있으므로, "
+                "실적·규제·유동성 관련 동향을 지속 모니터링하며 현 비중을 유지하는 기조를 권고합니다."
+            )
+        return summary, opinion
+
     def _generate_extractive_report(
         self,
-        query: str,
+        _query: str,
         citations: list[Citation] | list[dict[str, Any]],
         risk_tags: list[RiskTag],
     ) -> str:
         normalized = [c if isinstance(c, Citation) else Citation(**c) for c in citations]
         if not normalized:
-            return (
-                f"질문: {query}\n\n"
-                "검색된 근거 문서가 부족합니다. 뉴스/공시 데이터를 먼저 적재한 뒤 다시 검색해야 합니다."
-            )
+            return "검색된 근거 문서가 부족합니다. 뉴스/공시 데이터를 먼저 적재한 뒤 다시 검색해야 합니다."
 
-        evidence_lines = [
-            f"[{idx}] {citation.title} - {citation.snippet}"
-            for idx, citation in enumerate(normalized, start=1)
-        ]
-        risk_line = ", ".join(f"{tag.name}({tag.level:.2f})" for tag in risk_tags) or "뚜렷한 위험 태그 없음"
-        return (
-            f"질문: {query}\n\n"
-            "요약: 검색된 금융 뉴스 근거를 기준으로 투자 리스크와 핵심 이벤트를 정리했습니다.\n\n"
-            "주요 근거:\n"
-            + "\n".join(evidence_lines)
-            + "\n\n"
-            f"탐지된 리스크 태그: {risk_line}\n\n"
-            "투자 의견: 위 근거만으로는 확정적 매수/매도 판단보다 리스크 모니터링이 우선입니다. "
-            "실적, 규제, 유동성 관련 후속 뉴스가 포트폴리오 비중 조정의 핵심 입력값입니다."
-        )
+        _, opinion_text = self._build_summary_and_opinion(normalized, risk_tags)
+        return opinion_text
 
     @staticmethod
     def _extract_ticker(query: str) -> Optional[str]:
