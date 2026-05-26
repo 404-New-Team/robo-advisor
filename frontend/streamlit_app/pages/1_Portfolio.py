@@ -6,7 +6,7 @@ import streamlit as st
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from api_client import backtest, optimize_portfolio
+from api_client import strategy_backtests, optimize_portfolio
 from reference_data import get_order_preview, get_weight_table
 from ui import allocation_chart, configure_page, format_money, load_api_data, performance_chart, render_metric_row, render_sidebar, walk_forward_performance_frame
 
@@ -22,7 +22,7 @@ result = load_api_data(
     excluded=state["excluded_tickers"],
     token=state["access_token"],
 )
-backtest_result = load_api_data("백테스트", backtest, state["active_tickers"], "drl", token=state["access_token"])
+backtest_results = load_api_data("백테스트", strategy_backtests, state["active_tickers"], ["drl", "equal_weight"], token=state["access_token"])
 weights = result["weights"]
 weight_df = get_weight_table(weights)
 
@@ -70,7 +70,7 @@ st.dataframe(
 st.subheader("Walk-Forward 성과")
 st.info("조정 후 미래 경로 API가 아직 없어 현재 선택 자산의 백테스트 결과를 표시합니다.")
 st.plotly_chart(
-    performance_chart(walk_forward_performance_frame([backtest_result])),
+    performance_chart(walk_forward_performance_frame(backtest_results)),
     use_container_width=True,
     key="portfolio_walk_forward_chart",
 )
