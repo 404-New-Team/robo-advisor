@@ -13,14 +13,15 @@ robo-advisor/
 │   └── Dockerfile              # FastAPI backend
 ├── frontend/
 │   └── Dockerfile              # Streamlit frontend
-└── docker-compose.yml          # 로컬 통합 실행용
+├── docker-compose.yml          # 로컬 통합 실행용
+└── docker-compose.prod.yml     # 단일 서버 운영 배포용
 ```
 
 ## 로컬 통합 실행
 
 루트 compose는 로컬에서 전체 연결을 확인하기 위한 용도입니다.
 
-```powershell
+```bash
 docker compose up --build
 ```
 
@@ -28,19 +29,41 @@ docker compose up --build
 
 | 서비스 | URL | 설명 |
 | --- | --- | --- |
-| Backend | http://localhost:8000 | FastAPI gateway |
-| Backend Swagger | http://localhost:8000/docs | API 문서 |
+| Backend | http://localhost:8080 | FastAPI gateway |
+| Backend Swagger | http://localhost:8080/docs | API 문서 |
 | AI service | http://localhost:8002 | AI FastAPI service |
 | AI service health | http://localhost:8002/health | 모델/SHAP 상태 |
 | Frontend | http://localhost:8501 | Streamlit |
 | ChromaDB | http://localhost:8001 | Vector DB |
-| MySQL | localhost:3306 | Backend DB |
+| MySQL | localhost:3307 | Backend DB |
+
+## 운영 Compose 배포
+
+한 서버에 다른 서비스가 같이 떠 있는 경우 `docker-compose.prod.yml`을 사용하세요. 운영 compose는 MySQL, ChromaDB, AI 서비스를 외부에 공개하지 않고, Backend와 Frontend만 설정한 호스트 포트로 노출합니다.
+
+```bash
+cp .env.example .env
+# .env에서 ANTHROPIC_API_KEY, JWT_SECRET_KEY, MYSQL_ROOT_PASSWORD, MYSQL_PASSWORD를 운영 값으로 변경
+
+docker compose -p robo-advisor -f docker-compose.prod.yml up -d --build
+docker compose -p robo-advisor -f docker-compose.prod.yml ps
+```
+
+기본 운영 포트:
+
+| 서비스 | URL | 설명 |
+| --- | --- | --- |
+| Frontend | http://localhost:18501 | Streamlit |
+| Backend | http://localhost:18080 | FastAPI gateway |
+| Backend Swagger | http://localhost:18080/docs | API 문서 |
+
+이미 포트를 쓰고 있으면 `.env`의 `FRONTEND_PORT`, `BACKEND_PORT`만 바꾸면 됩니다. 자세한 절차는 [RUNBOOK.md](RUNBOOK.md)를 참고하세요.
 
 ## AI 단독 실행
 
 AI 모듈만 테스트하거나 실험을 돌릴 때는 `ai/` 디렉터리의 compose를 사용합니다.
 
-```powershell
+```bash
 cd ai
 docker compose build ai
 docker compose run --rm ai
