@@ -3,8 +3,7 @@ from tests.conftest import MOCK_RESEARCH_RESULT
 
 
 VALID_REQUEST = {
-    "query": "삼성전자 최근 리스크 분석해줘",
-    "ticker": "005930",
+    "tickers": ["005930"],
     "max_results": 5,
 }
 
@@ -19,9 +18,8 @@ def test_research_success(client):
     assert "sources" in data
 
 
-def test_research_empty_query_rejected(client):
-    bad_request = {**VALID_REQUEST, "query": ""}
-    response = client.post("/research", json=bad_request)
+def test_research_empty_tickers_rejected(client):
+    response = client.post("/research", json={"tickers": []})
     assert response.status_code == 422
 
 
@@ -45,12 +43,13 @@ def test_research_reasoning_trace_present(client):
     assert isinstance(data["reasoning_trace"], list)
 
 
-def test_research_without_ticker(client):
-    request_no_ticker = {"query": "글로벌 시장 리스크 분석해줘"}
-    result = {**MOCK_RESEARCH_RESULT, "ticker": None}
+def test_research_multiple_tickers(client):
+    request = {**VALID_REQUEST, "tickers": ["005930", "000660"]}
+    result = {**MOCK_RESEARCH_RESULT, "tickers": ["005930", "000660"]}
     with patch("app.routers.research.call_research", new_callable=AsyncMock, return_value=result):
-        response = client.post("/research", json=request_no_ticker)
+        response = client.post("/research", json=request)
     assert response.status_code == 200
+    assert response.json()["tickers"] == ["005930", "000660"]
 
 
 def test_research_forwards_portfolio_context(client):

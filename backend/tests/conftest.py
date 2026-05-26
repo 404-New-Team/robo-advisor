@@ -59,7 +59,7 @@ MOCK_SHAP_RESULT = {
 
 MOCK_RESEARCH_RESULT = {
     "status": "success",
-    "ticker": "005930",
+    "tickers": ["005930"],
     "summary": "삼성전자는 미국의 반도체 수출 규제 강화로 단기 리스크가 높은 상황입니다.",
     "risk_events": [
         {

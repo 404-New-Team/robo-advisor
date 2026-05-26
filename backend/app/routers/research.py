@@ -14,9 +14,8 @@ router = APIRouter(tags=["Research"])
 @router.post(
     "/research",
     response_model=ResearchResponse,
-    summary="투자 질문에 대한 에이전틱 RAG 리서치 결과 반환",
+    summary="티커 목록에 대한 에이전틱 RAG 리서치 결과 반환",
     responses={
-        400: {"description": "query가 비어있음"},
         504: {"description": "5초 초과 타임아웃"},
     },
 )
@@ -39,8 +38,7 @@ async def research_query(
 
     record = ResearchResult(
         user_id=current_user.id if current_user else None,
-        query=request.query,
-        ticker=request.ticker,
+        tickers=request.tickers,
         summary=ai_result.get("summary", ""),
         risk_events=[re.model_dump() for re in risk_events],
         sources=[s.model_dump() for s in sources],
@@ -51,7 +49,7 @@ async def research_query(
     db.commit()
 
     return ResearchResponse(
-        ticker=ai_result.get("ticker", request.ticker),
+        tickers=ai_result.get("tickers", request.tickers),
         summary=ai_result.get("summary", ""),
         risk_events=risk_events,
         sources=sources,

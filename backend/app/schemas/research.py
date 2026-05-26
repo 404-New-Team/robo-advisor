@@ -4,8 +4,7 @@ from pydantic import BaseModel, Field, field_validator
 
 
 class ResearchRequest(BaseModel):
-    query: str = Field(..., min_length=1, description="투자 관련 질문")
-    ticker: str | None = Field(None, description="특정 종목 지정 시")
+    tickers: list[str] = Field(..., min_length=1, description="리서치 대상 티커 목록")
     max_results: int = Field(default=5, ge=1, le=20, description="참고 뉴스 최대 개수")
     portfolio_context: dict[str, Any] | None = Field(None, description="현재 포트폴리오 구성과 추천 비중")
 
@@ -34,7 +33,7 @@ class NewsSource(BaseModel):
 
 class ResearchResponse(BaseModel):
     status: str = "success"
-    ticker: str | None = None
+    tickers: list[str] = []
     summary: str
     risk_events: list[RiskEvent] = []
     sources: list[NewsSource] = []

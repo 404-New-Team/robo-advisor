@@ -53,8 +53,7 @@ class ResearchResult(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     user_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
-    query: Mapped[str] = mapped_column(Text)
-    ticker: Mapped[str] = mapped_column(String(20), nullable=True)
+    tickers: Mapped[list] = mapped_column(JSON)
     summary: Mapped[str] = mapped_column(Text)
     risk_events: Mapped[dict] = mapped_column(JSON)
     sources: Mapped[dict] = mapped_column(JSON)
