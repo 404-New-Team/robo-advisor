@@ -99,12 +99,13 @@ with right:
 
 st.subheader("출처")
 source_df = pd.DataFrame(result["sources"], columns=["title", "url", "published_at", "relevance_score"])
+source_df["relevance_score"] = source_df["relevance_score"] * 100
 st.dataframe(
     source_df,
     use_container_width=True,
     hide_index=True,
     column_config={
         "url": st.column_config.LinkColumn("URL"),
-        "relevance_score": st.column_config.ProgressColumn("관련도", min_value=0, max_value=1, format="%.0f%%"),
+        "relevance_score": st.column_config.ProgressColumn("관련도", min_value=0, max_value=100, format="%.0f%%"),
     },
 )
