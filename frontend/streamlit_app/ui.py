@@ -192,10 +192,10 @@ def format_money(value: int | float) -> str:
 
 def render_metric_row(metrics: dict) -> None:
     cols = st.columns(4)
-    cols[0].metric("예상 수익률", format_percent(metrics["expected_return"]), "+2.8%p")
-    cols[1].metric("Sharpe", f"{metrics['sharpe_ratio']:.2f}", "+0.31")
-    cols[2].metric("MDD", format_percent(metrics["max_drawdown"]), "-3.4%p", delta_color="inverse")
-    cols[3].metric("변동성", format_percent(metrics["volatility"]), "-1.1%p", delta_color="inverse")
+    cols[0].metric("예상 수익률", format_percent(metrics["expected_return"]))
+    cols[1].metric("Sharpe", f"{metrics['sharpe_ratio']:.2f}")
+    cols[2].metric("MDD", format_percent(metrics["max_drawdown"]))
+    cols[3].metric("변동성", format_percent(metrics["volatility"]))
 
 
 def allocation_chart(weight_df: pd.DataFrame):
