@@ -200,21 +200,46 @@ def _get_or_fetch_prices(tickers: list[str], start: str, end: str) -> pd.DataFra
     return _prices_cache[key]
 
 
-def _mvo_weight_min(n_assets: int, risk_level: str) -> float:
-    """종목 수와 risk_level에 따라 MVO 최소 비중 결정. 분산투자 강제."""
-    base = {"low": 0.05, "moderate": 0.03, "high": 0.02}.get(risk_level, 0.03)
-    # 최소 비중 합이 1을 초과하지 않도록 조정
-    return min(base, 0.9 / max(n_assets, 1))
+_RISK_LEVEL_MVO: dict = {
+    # target: low는 분산 최소화로 수비적 전략, moderate/high는 Sharpe 최대화
+    # weight_min: 분산 강제 (low일수록 더 고르게)
+    # weight_max: 단일 자산 최대 집중도 (high일수록 집중 허용)
+    "low":      {"target": "min_variance", "weight_min": 0.05, "weight_max": 0.20},
+    "moderate": {"target": "max_sharpe",   "weight_min": 0.03, "weight_max": 0.35},
+    "high":     {"target": "max_sharpe",   "weight_min": 0.01, "weight_max": 0.50},
+}
+
+
+def _build_mvo_config(n_assets: int, risk_level: str) -> "MVOConfig":
+    """risk_level에 맞는 MVOConfig 반환. weight_min/max + 최적화 목표 함께 설정."""
+    c = _RISK_LEVEL_MVO.get(risk_level, _RISK_LEVEL_MVO["moderate"])
+    wmin = min(c["weight_min"], 0.9 / max(n_assets, 1))
+    return MVOConfig(target=c["target"], weight_min=wmin, weight_max=c["weight_max"])
 
 
 def _apply_risk_cap(weights: np.ndarray, risk_level: str) -> np.ndarray:
-    """risk_level에 따른 개별 자산 최대 비중 상한 적용."""
-    cap = {"low": 0.20, "moderate": 0.35, "high": 0.40}.get(risk_level, 0.35)
+    """risk_level에 따른 개별 자산 최대 비중 상한 적용 (MVO weight_max와 일치)."""
+    cap = _RISK_LEVEL_MVO.get(risk_level, _RISK_LEVEL_MVO["moderate"])["weight_max"]
     clipped = np.clip(weights, 0.0, cap)
     total = clipped.sum()
     if total < 1e-8:
         return np.ones(len(weights)) / len(weights)
     return (clipped / total).astype(float)
+
+
+def _adjust_ppo_weights_for_risk(weights: np.ndarray, risk_level: str) -> np.ndarray:
+    """PPO 비중을 risk_level에 맞게 조정.
+
+    PPO 모델은 risk_level을 모르고 학습됐으므로, 예측 이후에
+    동일가중(equal-weight)과 블렌딩하여 보수성 정도를 반영한다.
+    low=보수적(동일가중 70% 혼합), moderate=중립, high=PPO 비중 유지.
+    """
+    n = len(weights)
+    equal_w = np.ones(n) / n
+    blend = {"low": 0.70, "moderate": 0.30, "high": 0.0}.get(risk_level, 0.30)
+    blended = blend * equal_w + (1.0 - blend) * weights
+    total = blended.sum()
+    return _apply_risk_cap((blended / total).astype(float), risk_level)
 
 
 def _fig_to_b64(fig) -> str:
@@ -450,12 +475,14 @@ async def optimize(req: OptimizeRequest):
                 logger.info(f"PPO 폴백: 요청 티커 {outside}가 학습 범위 밖 → MVO 사용")
 
         if not use_ppo:
-            mvo = MVO(MVOConfig(weight_min=_mvo_weight_min(n, req.risk_level)))
+            mvo = MVO(_build_mvo_config(n, req.risk_level))
             mvo.fit(prices)
             weights = mvo.get_weights().astype(float)
-
-        # ── risk_level 캡 적용 ────────────────────────────────────────────────
-        weights = _apply_risk_cap(weights, req.risk_level)
+            # weight_max는 최적화 제약에 포함되지만 수치 오차 대비 재적용
+            weights = _apply_risk_cap(weights, req.risk_level)
+        else:
+            # PPO는 risk_level 모름 → 동일가중 블렌딩으로 보수성 조정
+            weights = _adjust_ppo_weights_for_risk(weights, req.risk_level)
 
         # ── 성과 지표 계산 ─────────────────────────────────────────────────────
         rets = log_returns(prices)
