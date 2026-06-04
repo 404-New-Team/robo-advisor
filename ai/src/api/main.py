@@ -397,6 +397,7 @@ class ShapRequest(BaseModel):
 class ResearchRequest(BaseModel):
     tickers: list[str] = Field(..., min_length=1)
     max_results: int = Field(5, ge=1, le=20)
+    portfolio_context: dict[str, Any] | None = Field(None)
 
 
 class BacktestRequest(BaseModel):
@@ -745,7 +746,11 @@ async def research(req: ResearchRequest):
     def _compute():
         agent = _get_research_agent()
         agent.config.n_results = req.max_results
-        report = agent.run(query=query, ticker=req.tickers[0] if len(req.tickers) == 1 else None)
+        report = agent.run(
+            query=query,
+            ticker=req.tickers[0] if len(req.tickers) == 1 else None,
+            portfolio_context=req.portfolio_context or {},
+        )
         return report
 
     try:
