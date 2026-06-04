@@ -831,14 +831,11 @@ async def backtest(req: BacktestRequest):
         # ── equal_weight ────────────────────────────────────────────────────
         if req.strategy == "equal_weight":
             from ..backtest.mvo import _build_fold_dates
-            rets = log_returns(prices)
             weights = np.ones(n) / n
-            port_rets = (rets.values * weights).sum(axis=1)
-            pv = np.insert(np.cumprod(1 + port_rets), 0, 1.0)
-            metrics = compute_metrics(daily_returns=port_rets.tolist(), portfolio_values=pv.tolist())
             cfg = WalkForwardConfig(train_months=24, test_months=6, step_months=6)
             folds_dates = _build_fold_dates(prices, cfg)
             fold_data: list[dict] = []
+            fold_metrics_list = []
             for _, (_, _, test_start, test_end) in enumerate(folds_dates):
                 test_prices = prices.loc[(prices.index >= test_start) & (prices.index <= test_end)]
                 test_rets = test_prices.pct_change().dropna()
@@ -847,6 +844,7 @@ async def backtest(req: BacktestRequest):
                     continue
                 cpv = np.insert(np.cumprod(1 + chunk), 0, 1.0)
                 cm = compute_metrics(daily_returns=chunk.tolist(), portfolio_values=cpv.tolist())
+                fold_metrics_list.append(cm)
                 fold_data.append({
                     "test_start": str(test_start.date() if hasattr(test_start, "date") else test_start),
                     "test_end": str(test_end.date() if hasattr(test_end, "date") else test_end),
@@ -854,19 +852,23 @@ async def backtest(req: BacktestRequest):
                     "sharpe": _safe_float(cm.sharpe),
                 })
 
+            def _fold_mean(attr):
+                vals = [getattr(m, attr, 0.0) for m in fold_metrics_list]
+                return float(np.mean(vals)) if vals else 0.0
+
             cache = {
                 "summary": {
-                    "mean_cagr": _safe_float(metrics.cagr),
-                    "mean_sharpe": _safe_float(metrics.sharpe),
-                    "mean_sortino": _safe_float(metrics.sortino),
-                    "mean_calmar": _safe_float(metrics.calmar),
-                    "mean_max_drawdown": _safe_float(metrics.max_drawdown),
-                    "mean_volatility": _safe_float(metrics.volatility),
-                    "mean_var_95": _safe_float(metrics.var_95),
-                    "mean_cvar_95": _safe_float(metrics.cvar_95),
-                    "mean_alpha": _safe_float(metrics.alpha),
-                    "mean_beta": _safe_float(metrics.beta),
-                    "mean_information_ratio": _safe_float(metrics.information_ratio),
+                    "mean_cagr": _fold_mean("cagr"),
+                    "mean_sharpe": _fold_mean("sharpe"),
+                    "mean_sortino": _fold_mean("sortino"),
+                    "mean_calmar": _fold_mean("calmar"),
+                    "mean_max_drawdown": _fold_mean("max_drawdown"),
+                    "mean_volatility": _fold_mean("volatility"),
+                    "mean_var_95": _fold_mean("var_95"),
+                    "mean_cvar_95": _fold_mean("cvar_95"),
+                    "mean_alpha": _fold_mean("alpha"),
+                    "mean_beta": _fold_mean("beta"),
+                    "mean_information_ratio": _fold_mean("information_ratio"),
                 },
                 "folds": fold_data,
             }
