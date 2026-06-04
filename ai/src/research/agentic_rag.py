@@ -997,11 +997,14 @@ class AgenticRAGResearchAgent:
     def _format_document_portfolio_links(citations: list[Citation]) -> list[str]:
         lines: list[str] = []
         for idx, citation in enumerate(citations, start=1):
+            title = citation.title or ""
+            snippet = citation.snippet or ""
+            content = snippet if snippet else title
             if citation.portfolio_targets:
                 targets = ", ".join(citation.portfolio_targets)
-                lines.append(f"근거 {idx}: {targets} 관련 리스크로 반영")
+                lines.append(f"근거 {idx} [{targets}]: {content}")
             else:
-                lines.append(f"근거 {idx}: 포트폴리오 공통 시장 리스크로 반영")
+                lines.append(f"근거 {idx} [공통 시장]: {content}")
         return lines
 
     @staticmethod
