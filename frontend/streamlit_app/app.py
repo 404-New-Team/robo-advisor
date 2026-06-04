@@ -36,6 +36,15 @@ research_result = load_api_data(
     portfolio_context=portfolio_context,
 )
 backtest_result = load_api_data("백테스트", backtest, state["active_tickers"], "drl", token=state["access_token"])
+backtest_results_all = [backtest_result]
+for _strategy in ("mvo", "equal_weight"):
+    try:
+        backtest_results_all.append(backtest(
+            state["active_tickers"], _strategy, token=state["access_token"],
+            start_date="2019-01-01", end_date="2026-07-01",
+        ))
+    except Exception as _e:
+        st.warning(f"{_strategy} 백테스트 실패: {_e}")
 allocation_result = load_api_data(
     "주문 수량 계산",
     allocation,
@@ -57,7 +66,7 @@ with left:
 with right:
     st.subheader("Walk-Forward 성과")
     st.plotly_chart(
-        performance_chart(walk_forward_performance_frame([backtest_result])),
+        performance_chart(walk_forward_performance_frame(backtest_results_all)),
         use_container_width=True,
         key="dashboard_walk_forward_chart",
     )
@@ -92,7 +101,7 @@ with tab_research:
 with tab_simulation:
     st.info("미래 경로 시뮬레이션 API가 아직 없어 백테스트 Walk-Forward 결과를 표시합니다.")
     st.plotly_chart(
-        performance_chart(walk_forward_performance_frame([backtest_result])),
+        performance_chart(walk_forward_performance_frame(backtest_results_all)),
         use_container_width=True,
         key="dashboard_simulation_walk_forward_chart",
     )

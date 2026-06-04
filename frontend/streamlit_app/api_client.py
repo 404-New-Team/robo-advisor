@@ -152,12 +152,17 @@ def explain(tickers: list[str], target_asset: str, token: str | None = None) -> 
     return _request("POST", "/explain", token=token, json=payload)
 
 
-def backtest(tickers: list[str], strategy: str, token: str | None = None) -> dict:
+def backtest(tickers: list[str], strategy: str, token: str | None = None,
+             start_date: str | None = None, end_date: str | None = None) -> dict:
     if USE_MOCK:
         from mock_data import get_backtest_response
 
         return get_backtest_response(strategy=strategy)
     params = {"tickers": tickers, "strategy": strategy}
+    if start_date:
+        params["start_date"] = start_date
+    if end_date:
+        params["end_date"] = end_date
     return _request("GET", "/backtest", token=token, params=params)
 
 

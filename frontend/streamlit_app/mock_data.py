@@ -318,13 +318,30 @@ def get_backtest_response(strategy: str = "drl") -> dict:
             "win_rate": 0.52,
         },
     }
-    walk_forward = [
-        {"period": "2021", "return": 0.074, "sharpe": 0.88},
-        {"period": "2022", "return": -0.031, "sharpe": 0.41},
-        {"period": "2023", "return": 0.126, "sharpe": 1.25},
-        {"period": "2024", "return": 0.093, "sharpe": 1.18},
-        {"period": "2025", "return": 0.071, "sharpe": 1.05},
-    ]
+    walk_forward_by_strategy = {
+        "drl": [
+            {"period": "2021", "return": 0.074, "sharpe": 0.88},
+            {"period": "2022", "return": -0.031, "sharpe": 0.41},
+            {"period": "2023", "return": 0.126, "sharpe": 1.25},
+            {"period": "2024", "return": 0.093, "sharpe": 1.18},
+            {"period": "2025", "return": 0.071, "sharpe": 1.05},
+        ],
+        "mvo": [
+            {"period": "2021", "return": 0.051, "sharpe": 0.61},
+            {"period": "2022", "return": -0.058, "sharpe": 0.29},
+            {"period": "2023", "return": 0.089, "sharpe": 0.94},
+            {"period": "2024", "return": 0.067, "sharpe": 0.83},
+            {"period": "2025", "return": 0.048, "sharpe": 0.71},
+        ],
+        "equal_weight": [
+            {"period": "2021", "return": 0.038, "sharpe": 0.52},
+            {"period": "2022", "return": -0.072, "sharpe": 0.18},
+            {"period": "2023", "return": 0.071, "sharpe": 0.78},
+            {"period": "2024", "return": 0.054, "sharpe": 0.69},
+            {"period": "2025", "return": 0.041, "sharpe": 0.58},
+        ],
+    }
+    walk_forward = walk_forward_by_strategy.get(strategy, walk_forward_by_strategy["drl"])
     return {
         "status": "success",
         "strategy": strategy,

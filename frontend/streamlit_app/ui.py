@@ -218,18 +218,36 @@ def performance_chart(df: pd.DataFrame):
 
 
 def walk_forward_performance_frame(results: list[dict]) -> pd.DataFrame:
-    rows_by_period = {}
-    for result in results:
+    if not results:
+        return pd.DataFrame()
+
+    series: dict[str, list[float]] = {}
+    x_labels: list[str] = ["시작"]
+
+    for idx, result in enumerate(results):
         strategy = result.get("strategy", "strategy")
         label = STRATEGY_LABELS.get(strategy, strategy)
+        items = result.get("walk_forward_results", []) or []
         cumulative = 100.0
-        items = result.get("walk_forward_results", []) or [{"period": "N/A", "return": 0.0}]
+        values: list[float] = [cumulative]
         for item in items:
             cumulative *= 1 + float(item.get("return", 0.0))
-            period = item.get("period", "N/A")
-            rows_by_period.setdefault(period, {"날짜": period})
-            rows_by_period[period][label] = cumulative
-    return pd.DataFrame(rows_by_period.values())
+            values.append(round(cumulative, 4))
+            if idx == 0:
+                period = item.get("period", "")
+                x_labels.append(period.split("~")[1][:7] if "~" in period else period)
+        series[label] = values
+
+    max_len = max(len(v) for v in series.values())
+    if len(x_labels) < max_len:
+        x_labels += [str(i) for i in range(len(x_labels), max_len)]
+
+    data: dict = {"날짜": x_labels[:max_len]}
+    for label, values in series.items():
+        padded = values + [None] * (max_len - len(values))
+        data[label] = padded[:max_len]
+
+    return pd.DataFrame(data)
 
 
 def strategy_comparison_from_results(results: list[dict]) -> pd.DataFrame:

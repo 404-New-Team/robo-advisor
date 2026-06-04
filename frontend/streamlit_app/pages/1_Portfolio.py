@@ -23,6 +23,15 @@ result = load_api_data(
     token=state["access_token"],
 )
 backtest_result = load_api_data("백테스트", backtest, state["active_tickers"], "drl", token=state["access_token"])
+backtest_results_all = [backtest_result]
+for _strategy in ("mvo", "equal_weight"):
+    try:
+        backtest_results_all.append(backtest(
+            state["active_tickers"], _strategy, token=state["access_token"],
+            start_date="2019-01-01", end_date="2026-07-01",
+        ))
+    except Exception as _e:
+        st.warning(f"{_strategy} 백테스트 실패: {_e}")
 weights = result["weights"]
 weight_df = get_weight_table(weights)
 
@@ -72,7 +81,7 @@ st.dataframe(
 
 st.subheader("Walk-Forward 성과")
 st.plotly_chart(
-    performance_chart(walk_forward_performance_frame([backtest_result])),
+    performance_chart(walk_forward_performance_frame(backtest_results_all)),
     use_container_width=True,
     key="portfolio_walk_forward_chart",
 )
