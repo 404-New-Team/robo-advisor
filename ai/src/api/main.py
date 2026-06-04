@@ -181,6 +181,39 @@ def _safe_float(v: Any, default: float = 0.0) -> float:
         return default
 
 
+def _to_kst(published: str) -> str:
+    """다양한 형식의 날짜 문자열을 KST 기준 'YYYY-MM-DD HH:mm'으로 통일."""
+    if not published:
+        return ""
+    from datetime import timedelta
+    kst = timezone(timedelta(hours=9))
+    for fmt in (
+        "%Y-%m-%dT%H:%M:%S%z",
+        "%Y-%m-%dT%H:%M:%S.%f%z",
+        "%Y-%m-%dT%H:%M:%SZ",
+        "%Y-%m-%dT%H:%M:%S.%fZ",
+        "%Y-%m-%d %H:%M:%S%z",
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%d",
+    ):
+        try:
+            dt = datetime.strptime(published.strip(), fmt)
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return dt.astimezone(kst).strftime("%Y-%m-%d %H:%M")
+        except ValueError:
+            continue
+    try:
+        from dateutil import parser as _dp
+        dt = _dp.parse(published.strip())
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        from datetime import timedelta as _td
+        return dt.astimezone(timezone(_td(hours=9))).strftime("%Y-%m-%d %H:%M")
+    except Exception:
+        return published
+
+
 def _find_checkpoint() -> Optional[Path]:
     """이용 가능한 PPO 체크포인트를 찾는다 (best → 최신 순)."""
     if CHECKPOINT_PATH.exists():
@@ -789,14 +822,14 @@ async def research(req: ResearchRequest):
             sources.append({
                 "title": c.title,
                 "url": c.url,
-                "published_at": c.published,
+                "published_at": _to_kst(c.published),
                 "relevance_score": round(_safe_float(c.relevance_score), 4),
             })
         elif isinstance(c, dict):
             sources.append({
                 "title": c.get("title", ""),
                 "url": c.get("url", ""),
-                "published_at": c.get("published", ""),
+                "published_at": _to_kst(c.get("published", "")),
                 "relevance_score": round(_safe_float(c.get("relevance_score", 0.0)), 4),
             })
 
