@@ -993,19 +993,45 @@ class AgenticRAGResearchAgent:
                 targets.append(label)
         return targets
 
-    @staticmethod
-    def _format_document_portfolio_links(citations: list[Citation]) -> list[str]:
-        lines: list[str] = []
-        for idx, citation in enumerate(citations, start=1):
-            title = citation.title or ""
-            snippet = citation.snippet or ""
-            content = snippet if snippet else title
-            if citation.portfolio_targets:
-                targets = ", ".join(citation.portfolio_targets)
-                lines.append(f"근거 {idx} [{targets}]: {content}")
-            else:
-                lines.append(f"근거 {idx} [공통 시장]: {content}")
-        return lines
+    def _translate_snippets(self, snippets: list[str]) -> list[str]:
+        """영어 스니펫 목록을 Claude로 한국어 번역. 실패 시 원본 반환."""
+        if not snippets:
+            return snippets
+        try:
+            import anthropic
+            numbered = "\n".join(f"{i + 1}. {s}" for i, s in enumerate(snippets))
+            client = anthropic.Anthropic()
+            response = client.messages.create(
+                model=self.config.llm_model,
+                max_tokens=2048,
+                messages=[{
+                    "role": "user",
+                    "content": (
+                        "다음 번호 매긴 뉴스 스니펫들을 자연스러운 한국어로 번역하세요. "
+                        "같은 번호 형식(예: 1. ...)으로 번역문만 출력하고 설명은 쓰지 마세요.\n\n"
+                        f"{numbered}"
+                    ),
+                }],
+            )
+            text = "".join(b.text for b in response.content if getattr(b, "type", "") == "text")
+            translated = []
+            for line in text.strip().split("\n"):
+                line = line.strip()
+                if line and line[0].isdigit() and ". " in line:
+                    translated.append(line.split(". ", 1)[1])
+            if len(translated) == len(snippets):
+                return translated
+        except Exception:
+            pass
+        return snippets
+
+    def _format_document_portfolio_links(self, citations: list[Citation]) -> list[str]:
+        snippets = [c.snippet or c.title or "" for c in citations]
+        translated = self._translate_snippets(snippets)
+        return [
+            f"근거 {idx}: {content}"
+            for idx, content in enumerate(translated, start=1)
+        ]
 
     @staticmethod
     def _extract_ticker(query: str) -> Optional[str]:

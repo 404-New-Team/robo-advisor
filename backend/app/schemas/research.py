@@ -13,6 +13,7 @@ class RiskEvent(BaseModel):
     type: str
     description: str
     severity: Literal["low", "moderate", "high"]
+    level: float = 0.0
     detected_at: str
 
     @field_validator("severity", mode="before")
