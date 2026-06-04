@@ -36,7 +36,7 @@ _executor = ThreadPoolExecutor(max_workers=4)
 # 엔드포인트별 타임아웃 (초)
 TIMEOUT_OPTIMIZE = 30.0
 TIMEOUT_SHAP = 30.0
-TIMEOUT_RESEARCH = 30.0
+TIMEOUT_RESEARCH = 60.0
 TIMEOUT_BACKTEST = 60.0
 
 # ─── 전역 상태 ─────────────────────────────────────────────────────────────────

@@ -19,6 +19,8 @@ COPY requirements.txt .
 RUN python -m pip install --upgrade pip \
     && pip install -r requirements.txt
 
+RUN python -c "from chromadb.utils.embedding_functions import DefaultEmbeddingFunction; DefaultEmbeddingFunction()"
+
 COPY . .
 
 RUN mkdir -p checkpoints experiments/results .cache/market .cache/chromadb
