@@ -367,7 +367,15 @@ def _build_wf_response(strategy: str, cached: dict, kospi_ret: float, sp500_ret:
     summary = cached.get("summary", {})
     folds = cached.get("folds", [])
 
-    mean_return = _safe_float(summary.get("mean_cagr", 0.0))
+    def _fold_mean(key: str) -> float:
+        vals = [_safe_float(f[key]) for f in folds if f.get(key) is not None]
+        return float(np.mean(vals)) if vals else 0.0
+
+    def _sv(summary_key: str, fold_key: str) -> float:
+        v = _safe_float(summary.get(summary_key, 0.0))
+        return v if v != 0.0 else _fold_mean(fold_key)
+
+    mean_return = _safe_float(summary.get("mean_cagr", 0.0)) or _fold_mean("cagr")
     fold_returns = [_safe_float(f.get("total_return", f.get("cagr", 0.0))) for f in folds]
     win_rate = float(np.mean([r > 0 for r in fold_returns])) if fold_returns else 0.0
 
@@ -375,11 +383,11 @@ def _build_wf_response(strategy: str, cached: dict, kospi_ret: float, sp500_ret:
         "strategy": strategy,
         "metrics": {
             "total_return": mean_return,
-            "sharpe_ratio": _safe_float(summary.get("mean_sharpe", 0.0)),
-            "sortino_ratio": _safe_float(summary.get("mean_sortino", 0.0)),
-            "calmar_ratio": _safe_float(summary.get("mean_calmar", 0.0)),
-            "max_drawdown": -abs(_safe_float(summary.get("mean_max_drawdown", 0.0))),
-            "volatility": _safe_float(summary.get("mean_volatility", summary.get("std_cagr", 0.0))),
+            "sharpe_ratio": _sv("mean_sharpe", "sharpe"),
+            "sortino_ratio": _sv("mean_sortino", "sortino"),
+            "calmar_ratio": _sv("mean_calmar", "calmar"),
+            "max_drawdown": -abs(_sv("mean_max_drawdown", "max_drawdown")),
+            "volatility": _sv("mean_volatility", "volatility"),
             "win_rate": win_rate,
         },
         "benchmark_comparison": {
