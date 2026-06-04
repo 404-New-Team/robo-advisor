@@ -49,7 +49,10 @@ def _fetch_krx_openapi(tickers: list, start: str, end: str) -> pd.DataFrame:
 
 def _fetch_krx(tickers: list, start: str, end: str) -> pd.DataFrame:
     """pykrx로 국내 ETF/주식 종가 수집. index=Date(datetime), columns=ticker."""
-    from pykrx import stock
+    try:
+        from pykrx import stock as _pykrx_stock
+    except Exception:
+        _pykrx_stock = None
 
     start_str = start.replace("-", "")
     end_str = end.replace("-", "")
@@ -58,17 +61,18 @@ def _fetch_krx(tickers: list, start: str, end: str) -> pd.DataFrame:
     for ticker in tickers:
         df = None
         # 일반 주식 먼저 시도 (삼성전자·SK하이닉스 등 비ETF 티커는 여기서 바로 성공)
-        try:
-            df = stock.get_market_ohlcv_by_date(start_str, end_str, ticker)
-        except Exception:
-            pass
-
-        # 데이터가 없으면 ETF 엔드포인트 시도
-        if df is None or df.empty:
+        if _pykrx_stock is not None:
             try:
-                df = stock.get_etf_ohlcv_by_date(start_str, end_str, ticker)
+                df = _pykrx_stock.get_market_ohlcv_by_date(start_str, end_str, ticker)
             except Exception:
                 pass
+
+            # 데이터가 없으면 ETF 엔드포인트 시도
+            if df is None or df.empty:
+                try:
+                    df = _pykrx_stock.get_etf_ohlcv_by_date(start_str, end_str, ticker)
+                except Exception:
+                    pass
 
         # pykrx 둘 다 실패 시 yfinance(.KS) 폴백
         if df is None or df.empty:

@@ -765,12 +765,15 @@ async def research(req: ResearchRequest):
     # ── RiskTag → risk_events 변환 ─────────────────────────────────────────
     risk_events = []
     for tag in report.risk_tags:
-        level = _safe_float(getattr(tag, "level", 0.5))
+        level = _safe_float(getattr(tag, "level", 0.0))
+        if level <= 0.0:
+            continue
         severity = "high" if level >= 0.7 else "moderate" if level >= 0.4 else "low"
         risk_events.append({
             "type": getattr(tag, "name", str(tag)),
             "description": getattr(tag, "source", ""),
             "severity": severity,
+            "level": round(level, 3),
             "detected_at": _utc_now()[:10],
         })
 

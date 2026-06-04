@@ -88,8 +88,25 @@ st.write(result["summary"])
 left, right = st.columns([1, 1])
 with left:
     st.subheader("리스크 이벤트")
-    risk_df = pd.DataFrame(result["risk_events"], columns=["type", "description", "severity", "detected_at"])
-    st.dataframe(risk_df, use_container_width=True, hide_index=True)
+    risk_events = result.get("risk_events") or []
+    if risk_events:
+        risk_df = pd.DataFrame(risk_events)
+        for col in ["type", "description", "severity", "level", "detected_at"]:
+            if col not in risk_df.columns:
+                risk_df[col] = None
+        risk_df = risk_df[["type", "description", "severity", "level", "detected_at"]]
+        st.dataframe(
+            risk_df,
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "level": st.column_config.ProgressColumn(
+                    "강도", min_value=0.0, max_value=1.0, format="%.2f"
+                ),
+            },
+        )
+    else:
+        st.info("탐지된 리스크 이벤트가 없습니다.")
 with right:
     st.subheader("자체 검증")
     st.metric("Self-Correction", f"{result['self_correction_count']}회")
