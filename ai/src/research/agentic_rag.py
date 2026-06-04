@@ -994,14 +994,18 @@ class AgenticRAGResearchAgent:
         return targets
 
     def _summarize_citations_in_korean(self, citations: list[Citation]) -> list[str]:
-        """각 Citation의 투자 리스크 관련 핵심을 Claude로 한국어 한 문장 요약.
+        """각 Citation이 포트폴리오 리스크와 어떻게 연결되는지 한국어 한 문장으로 설명.
         실패 시 제목 반환."""
         if not citations:
             return []
         try:
             import anthropic
             entries = "\n\n".join(
-                f"{i}. 제목: {c.title}\n본문: {re.sub(chr(10), ' ', c.snippet or '')[:300]}"
+                (
+                    f"{i}. 제목: {c.title}\n"
+                    f"관련 종목: {', '.join(c.portfolio_targets) if c.portfolio_targets else '포트폴리오 전반'}\n"
+                    f"본문: {re.sub(chr(10), ' ', c.snippet or '')[:200]}"
+                )
                 for i, c in enumerate(citations, 1)
             )
             client = anthropic.Anthropic()
@@ -1011,8 +1015,11 @@ class AgenticRAGResearchAgent:
                 messages=[{
                     "role": "user",
                     "content": (
-                        "다음 뉴스 기사들의 투자 리스크와 관련된 핵심 내용을 각각 한국어 한 문장으로 요약하세요. "
-                        "번호와 요약만 출력하세요 (형식: 숫자. 요약문). 설명이나 다른 텍스트는 쓰지 마세요.\n\n"
+                        "다음 각 뉴스 기사가 '관련 종목'의 투자 리스크와 어떻게 연결되는지 "
+                        "한국어 한 문장으로 설명하세요. "
+                        "기사 내용을 단순 요약하지 말고, 해당 종목에 구체적으로 어떤 리스크(가격·수익·규제 등)를 "
+                        "야기하는지 인과관계 중심으로 작성하세요. "
+                        "번호와 설명만 출력하세요 (형식: 숫자. 설명). 다른 텍스트는 쓰지 마세요.\n\n"
                         f"{entries}"
                     ),
                 }],

@@ -147,29 +147,16 @@ def render_sidebar() -> dict:
             st.sidebar.success("투자 대상을 저장했습니다.")
         except Exception as error:
             st.sidebar.error(f"투자 대상 저장 실패: {error}")
-    excluded = st.sidebar.multiselect(
-        "제외 종목",
-        selected,
-        default=[],
-        format_func=get_asset_label,
-    )
     if not selected:
         st.sidebar.warning("투자 대상이 비어 있어 기본 유니버스를 사용합니다.")
         selected = get_default_tickers()
-        excluded = []
-    if selected and len(excluded) == len(selected):
-        st.sidebar.warning("전체 종목을 제외할 수 없어 마지막 제외 항목을 해제합니다.")
-        excluded = excluded[:-1]
-    horizon = st.sidebar.selectbox("시뮬레이션 기간", ["6개월", "12개월", "24개월"], index=1)
-    active = [ticker for ticker in selected if ticker not in set(excluded)] or selected
     return {
         "risk_level": risk_level,
         "risk_label": risk_label,
         "investment_amount": int(investment_amount),
         "selected_tickers": selected,
-        "excluded_tickers": excluded,
-        "active_tickers": active,
-        "horizon": horizon,
+        "excluded_tickers": [],
+        "active_tickers": selected,
         "access_token": token,
     }
 

@@ -71,7 +71,6 @@ st.dataframe(
 )
 
 st.subheader("Walk-Forward 성과")
-st.info("조정 후 미래 경로 API가 아직 없어 현재 선택 자산의 백테스트 결과를 표시합니다.")
 st.plotly_chart(
     performance_chart(walk_forward_performance_frame([backtest_result])),
     use_container_width=True,
