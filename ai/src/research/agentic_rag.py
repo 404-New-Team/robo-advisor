@@ -993,44 +993,49 @@ class AgenticRAGResearchAgent:
                 targets.append(label)
         return targets
 
-    def _translate_snippets(self, snippets: list[str]) -> list[str]:
-        """영어 스니펫 목록을 Claude로 한국어 번역. 실패 시 원본 반환."""
-        if not snippets:
-            return snippets
+    def _summarize_citations_in_korean(self, citations: list[Citation]) -> list[str]:
+        """각 Citation의 투자 리스크 관련 핵심을 Claude로 한국어 한 문장 요약.
+        실패 시 제목 반환."""
+        if not citations:
+            return []
         try:
             import anthropic
-            numbered = "\n".join(f"{i + 1}. {s}" for i, s in enumerate(snippets))
+            entries = "\n\n".join(
+                f"{i}. 제목: {c.title}\n본문: {re.sub(chr(10), ' ', c.snippet or '')[:300]}"
+                for i, c in enumerate(citations, 1)
+            )
             client = anthropic.Anthropic()
             response = client.messages.create(
                 model=self.config.llm_model,
-                max_tokens=2048,
+                max_tokens=1024,
                 messages=[{
                     "role": "user",
                     "content": (
-                        "다음 번호 매긴 뉴스 스니펫들을 자연스러운 한국어로 번역하세요. "
-                        "같은 번호 형식(예: 1. ...)으로 번역문만 출력하고 설명은 쓰지 마세요.\n\n"
-                        f"{numbered}"
+                        "다음 뉴스 기사들의 투자 리스크와 관련된 핵심 내용을 각각 한국어 한 문장으로 요약하세요. "
+                        "번호와 요약만 출력하세요 (형식: 숫자. 요약문). 설명이나 다른 텍스트는 쓰지 마세요.\n\n"
+                        f"{entries}"
                     ),
                 }],
             )
             text = "".join(b.text for b in response.content if getattr(b, "type", "") == "text")
-            translated = []
-            for line in text.strip().split("\n"):
+            results: dict[int, str] = {}
+            for line in text.strip().splitlines():
                 line = line.strip()
-                if line and line[0].isdigit() and ". " in line:
-                    translated.append(line.split(". ", 1)[1])
-            if len(translated) == len(snippets):
-                return translated
+                m = re.match(r"^(\d+)[.)]\s+(.+)", line)
+                if m:
+                    results[int(m.group(1))] = m.group(2).strip()
+            summaries = [results.get(i, "") for i in range(1, len(citations) + 1)]
+            if all(summaries):
+                return summaries
         except Exception:
             pass
-        return snippets
+        return [c.title or (c.snippet or "")[:80] or "" for c in citations]
 
     def _format_document_portfolio_links(self, citations: list[Citation]) -> list[str]:
-        snippets = [c.snippet or c.title or "" for c in citations]
-        translated = self._translate_snippets(snippets)
+        summaries = self._summarize_citations_in_korean(citations)
         return [
-            f"근거 {idx}: {content}"
-            for idx, content in enumerate(translated, start=1)
+            f"근거 {idx}: {summary}"
+            for idx, summary in enumerate(summaries, start=1)
         ]
 
     @staticmethod
