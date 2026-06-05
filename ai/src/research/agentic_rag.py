@@ -1031,9 +1031,10 @@ class AgenticRAGResearchAgent:
                 m = re.match(r"^(\d+)[.)]\s+(.+)", line)
                 if m:
                     results[int(m.group(1))] = m.group(2).strip()
-            summaries = [results.get(i, "") for i in range(1, len(citations) + 1)]
-            if all(summaries):
-                return summaries
+            return [
+                results.get(i, c.title or (c.snippet or "")[:80] or "")
+                for i, c in enumerate(citations, 1)
+            ]
         except Exception:
             pass
         return [c.title or (c.snippet or "")[:80] or "" for c in citations]
@@ -1041,7 +1042,7 @@ class AgenticRAGResearchAgent:
     def _format_document_portfolio_links(self, citations: list[Citation]) -> list[str]:
         summaries = self._summarize_citations_in_korean(citations)
         return [
-            f"근거 {idx}: {summary}"
+            f"근거 {idx}) {summary}"
             for idx, summary in enumerate(summaries, start=1)
         ]
 
