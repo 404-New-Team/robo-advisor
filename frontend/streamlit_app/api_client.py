@@ -11,6 +11,7 @@ except ImportError:
 
 API_BASE_URL = (os.getenv("API_BASE_URL") or os.getenv("ROBBY_API_BASE_URL", "http://localhost:8000")).rstrip("/")
 REQUEST_TIMEOUT = float(os.getenv("ROBBY_API_TIMEOUT", "30"))
+REQUEST_TIMEOUT_RESEARCH = float(os.getenv("ROBBY_API_TIMEOUT_RESEARCH", "210"))
 USE_MOCK = os.getenv("ROBBY_USE_MOCK", "false").lower() == "true"
 
 
@@ -36,7 +37,7 @@ def _error_message(response) -> str:
     return response.reason
 
 
-def _request(method: str, path: str, token: str | None = None, **kwargs: Any) -> dict:
+def _request(method: str, path: str, token: str | None = None, timeout: float | None = None, **kwargs: Any) -> dict:
     if requests is None:
         raise ApiClientError("requests 패키지가 설치되어 있지 않습니다.")
     headers = kwargs.pop("headers", {}) or {}
@@ -44,8 +45,9 @@ def _request(method: str, path: str, token: str | None = None, **kwargs: Any) ->
         headers = {**headers, "Authorization": f"Bearer {token}"}
     if headers:
         kwargs["headers"] = headers
+    effective_timeout = timeout if timeout is not None else REQUEST_TIMEOUT
     try:
-        response = requests.request(method, f"{API_BASE_URL}{path}", timeout=REQUEST_TIMEOUT, **kwargs)
+        response = requests.request(method, f"{API_BASE_URL}{path}", timeout=effective_timeout, **kwargs)
         response.raise_for_status()
         return response.json()
     except requests.exceptions.HTTPError as error:
@@ -140,7 +142,7 @@ def research(
     payload = {"tickers": research_tickers, "max_results": max_results}
     if portfolio_context is not None:
         payload["portfolio_context"] = portfolio_context
-    return _request("POST", "/research", token=token, json=payload)
+    return _request("POST", "/research", token=token, timeout=REQUEST_TIMEOUT_RESEARCH, json=payload)
 
 
 def explain(tickers: list[str], target_asset: str, token: str | None = None) -> dict:

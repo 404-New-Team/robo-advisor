@@ -993,9 +993,9 @@ class AgenticRAGResearchAgent:
                 targets.append(label)
         return targets
 
-    def _summarize_citations_in_korean(self, citations: list[Citation]) -> list[str]:
-        """각 Citation이 포트폴리오 리스크와 어떻게 연결되는지 한국어 한 문장으로 설명.
-        실패 시 제목 반환."""
+    def _summarize_citations_in_korean(self, citations: list[Citation]) -> list[tuple[str, str]]:
+        """각 Citation에 대해 (리스크 설명, 핵심 근거 문장) 튜플 반환.
+        실패 시 (제목, '') 반환."""
         if not citations:
             return []
         try:
@@ -1004,47 +1004,59 @@ class AgenticRAGResearchAgent:
                 (
                     f"{i}. 제목: {c.title}\n"
                     f"관련 종목: {', '.join(c.portfolio_targets) if c.portfolio_targets else '포트폴리오 전반'}\n"
-                    f"본문: {re.sub(chr(10), ' ', c.snippet or '')[:200]}"
+                    f"본문: {re.sub(chr(10), ' ', c.snippet or '')[:300]}"
                 )
                 for i, c in enumerate(citations, 1)
             )
             client = anthropic.Anthropic()
             response = client.messages.create(
                 model=self.config.llm_model,
-                max_tokens=1024,
+                max_tokens=1500,
                 messages=[{
                     "role": "user",
                     "content": (
-                        "다음 각 뉴스 기사가 '관련 종목'의 투자 리스크와 어떻게 연결되는지 "
-                        "한국어 한 문장으로 설명하세요. "
-                        "기사 내용을 단순 요약하지 말고, 해당 종목에 구체적으로 어떤 리스크(가격·수익·규제 등)를 "
-                        "야기하는지 인과관계 중심으로 작성하세요. "
-                        "번호와 설명만 출력하세요 (형식: 숫자. 설명). 다른 텍스트는 쓰지 마세요.\n\n"
+                        "다음 각 뉴스 기사에 대해 정확히 두 줄씩 출력하세요.\n"
+                        "첫 번째 줄: '숫자. 설명' 형식 — 해당 종목에 구체적으로 어떤 리스크(가격·수익·규제 등)를 "
+                        "야기하는지 인과관계 중심으로 한국어 한 문장.\n"
+                        "두 번째 줄: '숫자근거. 핵심문장' 형식 — 본문에서 그 판단의 직접적 근거가 된 원문 한 줄 "
+                        "(본문을 그대로 인용하거나 최소한으로 다듬어 한 문장으로).\n"
+                        "다른 텍스트는 절대 쓰지 마세요.\n\n"
                         f"{entries}"
                     ),
                 }],
             )
             text = "".join(b.text for b in response.content if getattr(b, "type", "") == "text")
-            results: dict[int, str] = {}
+            summaries: dict[int, str] = {}
+            evidences: dict[int, str] = {}
             for line in text.strip().splitlines():
                 line = line.strip()
+                m = re.match(r"^(\d+)근거[.)]\s+(.+)", line)
+                if m:
+                    evidences[int(m.group(1))] = m.group(2).strip()
+                    continue
                 m = re.match(r"^(\d+)[.)]\s+(.+)", line)
                 if m:
-                    results[int(m.group(1))] = m.group(2).strip()
+                    summaries[int(m.group(1))] = m.group(2).strip()
             return [
-                results.get(i, c.title or (c.snippet or "")[:80] or "")
+                (
+                    summaries.get(i, c.title or ""),
+                    evidences.get(i, ""),
+                )
                 for i, c in enumerate(citations, 1)
             ]
         except Exception:
             pass
-        return [c.title or (c.snippet or "")[:80] or "" for c in citations]
+        return [(c.title or (c.snippet or "")[:80] or "", "") for c in citations]
 
     def _format_document_portfolio_links(self, citations: list[Citation]) -> list[str]:
-        summaries = self._summarize_citations_in_korean(citations)
-        return [
-            f"근거 {idx}) {summary}"
-            for idx, summary in enumerate(summaries, start=1)
-        ]
+        pairs = self._summarize_citations_in_korean(citations)
+        lines = []
+        for idx, (summary, evidence) in enumerate(pairs, start=1):
+            parts = [f"근거 {idx}) {summary}"]
+            if evidence:
+                parts.append(f"   ▸ {evidence}")
+            lines.append("\n".join(parts))
+        return lines
 
     @staticmethod
     def _extract_ticker(query: str) -> Optional[str]:

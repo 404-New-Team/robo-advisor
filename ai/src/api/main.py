@@ -34,10 +34,10 @@ logger = logging.getLogger(__name__)
 _executor = ThreadPoolExecutor(max_workers=4)
 
 # 엔드포인트별 타임아웃 (초)
-TIMEOUT_OPTIMIZE = 30.0
-TIMEOUT_SHAP = 30.0
-TIMEOUT_RESEARCH = 90.0
-TIMEOUT_BACKTEST = 60.0
+TIMEOUT_OPTIMIZE = 45.0
+TIMEOUT_SHAP = 45.0
+TIMEOUT_RESEARCH = 180.0
+TIMEOUT_BACKTEST = 90.0
 
 # ─── 전역 상태 ─────────────────────────────────────────────────────────────────
 _ppo_model: Any = None       # stable_baselines3.PPO

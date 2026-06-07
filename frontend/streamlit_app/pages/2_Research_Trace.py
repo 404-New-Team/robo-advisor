@@ -82,8 +82,21 @@ if result is None:
     st.info("리서치 실행 버튼을 눌러 현재 포트폴리오 기준 분석을 시작하세요.")
     st.stop()
 
+def _filter_portfolio_section(summary: str) -> str:
+    header = "포트폴리오 구성/비중 기준:"
+    if header not in summary:
+        return summary
+    before, rest = summary.split(header, 1)
+    chunks = rest.split("\n\n", 1)
+    portfolio_lines = chunks[0].strip().split("\n")
+    after = "\n\n" + chunks[1] if len(chunks) > 1 else ""
+    weight_lines = [l for l in portfolio_lines if l.startswith("추천 비중:")]
+    filtered_block = (header + "\n" + "\n".join(weight_lines)) if weight_lines else ""
+    return before + filtered_block + after
+
+
 st.subheader("요약")
-st.write(result["summary"])
+st.write(_filter_portfolio_section(result["summary"]))
 
 left, right = st.columns([1, 1])
 with left:

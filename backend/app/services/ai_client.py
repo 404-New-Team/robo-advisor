@@ -11,19 +11,29 @@ class AIServiceError(Exception):
         super().__init__(message)
 
 
-def _get_client() -> httpx.AsyncClient:
+_ENDPOINT_TIMEOUTS: dict[str, float] = {
+    "/ai/optimize": 50.0,
+    "/ai/shap": 50.0,
+    "/ai/research": 200.0,
+    "/ai/backtest": 100.0,
+}
+
+
+def _get_client(endpoint: str) -> httpx.AsyncClient:
+    timeout = _ENDPOINT_TIMEOUTS.get(endpoint, settings.ai_timeout)
     return httpx.AsyncClient(
         base_url=settings.ai_service_url,
-        timeout=settings.ai_timeout,
+        timeout=timeout,
     )
 
 
 async def call_optimize(payload: dict) -> dict:
-    async with _get_client() as client:
+    endpoint = "/ai/optimize"
+    async with _get_client(endpoint) as client:
         try:
-            response = await client.post("/ai/optimize", json=payload)
+            response = await client.post(endpoint, json=payload)
         except httpx.TimeoutException:
-            raise AIServiceError(504, "AI 서비스 응답 시간 초과", f"{settings.ai_timeout}초 초과")
+            raise AIServiceError(504, "AI 서비스 응답 시간 초과", f"{_ENDPOINT_TIMEOUTS[endpoint]}초 초과")
         except httpx.RequestError as e:
             raise AIServiceError(503, "AI 서비스 연결 실패", str(e))
 
@@ -33,11 +43,12 @@ async def call_optimize(payload: dict) -> dict:
 
 
 async def call_shap(payload: dict) -> dict:
-    async with _get_client() as client:
+    endpoint = "/ai/shap"
+    async with _get_client(endpoint) as client:
         try:
-            response = await client.post("/ai/shap", json=payload)
+            response = await client.post(endpoint, json=payload)
         except httpx.TimeoutException:
-            raise AIServiceError(504, "AI 서비스 응답 시간 초과", f"{settings.ai_timeout}초 초과")
+            raise AIServiceError(504, "AI 서비스 응답 시간 초과", f"{_ENDPOINT_TIMEOUTS[endpoint]}초 초과")
         except httpx.RequestError as e:
             raise AIServiceError(503, "AI 서비스 연결 실패", str(e))
 
@@ -47,11 +58,12 @@ async def call_shap(payload: dict) -> dict:
 
 
 async def call_research(payload: dict) -> dict:
-    async with _get_client() as client:
+    endpoint = "/ai/research"
+    async with _get_client(endpoint) as client:
         try:
-            response = await client.post("/ai/research", json=payload)
+            response = await client.post(endpoint, json=payload)
         except httpx.TimeoutException:
-            raise AIServiceError(504, "AI 서비스 응답 시간 초과", f"{settings.ai_timeout}초 초과")
+            raise AIServiceError(504, "AI 서비스 응답 시간 초과", f"{_ENDPOINT_TIMEOUTS[endpoint]}초 초과")
         except httpx.RequestError as e:
             raise AIServiceError(503, "AI 서비스 연결 실패", str(e))
 
@@ -61,11 +73,12 @@ async def call_research(payload: dict) -> dict:
 
 
 async def call_backtest(payload: dict) -> dict:
-    async with _get_client() as client:
+    endpoint = "/ai/backtest"
+    async with _get_client(endpoint) as client:
         try:
-            response = await client.post("/ai/backtest", json=payload)
+            response = await client.post(endpoint, json=payload)
         except httpx.TimeoutException:
-            raise AIServiceError(504, "AI 서비스 응답 시간 초과", f"{settings.ai_timeout}초 초과")
+            raise AIServiceError(504, "AI 서비스 응답 시간 초과", f"{_ENDPOINT_TIMEOUTS[endpoint]}초 초과")
         except httpx.RequestError as e:
             raise AIServiceError(503, "AI 서비스 연결 실패", str(e))
 
