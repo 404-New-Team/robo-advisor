@@ -88,7 +88,7 @@ async def call_backtest(payload: dict) -> dict:
 
 
 async def check_ai_health() -> dict:
-    async with _get_client() as client:
+    async with _get_client("/health") as client:
         try:
             response = await client.get("/health")
             if response.status_code == 200:
