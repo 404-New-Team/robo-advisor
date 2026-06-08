@@ -11,9 +11,17 @@
 set -e
 cd "$(dirname "$0")/.."
 
+IMAGE="robo-advisor-ai:latest"
+DOCKER_RUN="docker run --rm \
+  -v $(pwd)/checkpoints:/app/checkpoints \
+  -v $(pwd)/experiments/results:/app/experiments/results \
+  -v $(pwd)/.cache:/app/.cache \
+  -e ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-} \
+  $IMAGE"
+
 # ── 공통 설정 (모든 실험 동일) ─────────────────────────────────────────────
-START="2019-01-01"
-END="2026-06-08"
+START="2017-01-01"
+END="2025-12-31"
 TRAIN_MONTHS=24
 TEST_MONTHS=6
 STEP_MONTHS=6
@@ -69,7 +77,7 @@ for N_SEEDS in "${SEEDS_LIST[@]}"; do
     echo "[$IDX/$TOTAL] n_seeds=$N_SEEDS 시작..."
     START_TIME=$(date +%s)
 
-    python experiments/walk_forward_experiment.py \
+    $DOCKER_RUN python experiments/walk_forward_experiment.py \
         --start         "$START" \
         --end           "$END" \
         --train_months  $TRAIN_MONTHS \

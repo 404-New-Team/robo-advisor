@@ -45,8 +45,10 @@ if result is None:
 
 
 # ─── 유틸 ─────────────────────────────────────────────────────────────────────
-def _sig_badge(significant: bool) -> str:
-    return "✅ p < α (유의)" if significant else "❌ p ≥ α (유의하지 않음)"
+def _fmt_p(p: float | None) -> str:
+    if p is None or p != p:
+        return "N/A"
+    return f"{p:.6f}"
 
 
 def _render_oneways(data: dict, title: str, group_label: str) -> None:
@@ -55,7 +57,7 @@ def _render_oneways(data: dict, title: str, group_label: str) -> None:
 
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("F-통계량", f"{data['f_statistic']:.4f}")
-    c2.metric("p-value", f"{data['p_value']:.6f}")
+    c2.metric("p-value", _fmt_p(data.get("p_value")))
     c3.metric("η² 효과 크기", f"{data['eta_squared']:.4f}")
     c4.metric("판정", "유의 ✅" if data["significant"] else "비유의 ❌")
 
@@ -94,7 +96,7 @@ def _render_oneways(data: dict, title: str, group_label: str) -> None:
                 "그룹 2": t["group2"],
                 "평균 차이": round(t["mean_diff"], 4),
                 "q-통계량": round(t["q_statistic"], 4),
-                "p-근사값": round(t["p_value_approx"], 6),
+                "p-근사값": _fmt_p(t.get("p_value_approx")),
                 "유의": "✅" if t["significant"] else "❌",
             }
             for t in tukey
@@ -142,7 +144,7 @@ else:
         eff_rows.append({
             "요인": name,
             "F-통계량": round(eff["f_statistic"], 4),
-            "p-value": round(eff["p_value"], 6),
+            "p-value": _fmt_p(eff.get("p_value")),
             "Partial η²": round(eff["eta_sq_partial"], 4),
             "유의": "✅" if eff["significant"] else "❌",
         })
