@@ -43,14 +43,16 @@ def _numpy_default(obj):
 
 def main():
     parser = argparse.ArgumentParser(description="Strategy ANOVA: DRL vs MVO vs EqualWeight")
-    parser.add_argument("--start",          type=str, default="2019-01-01",  help="데이터 시작일")
-    parser.add_argument("--end",            type=str, default="2024-12-31",  help="데이터 종료일")
-    parser.add_argument("--train_months",   type=int, default=24,  help="훈련 기간 (월)")
-    parser.add_argument("--test_months",    type=int, default=6,   help="테스트 기간 (월)")
-    parser.add_argument("--step_months",    type=int, default=6,   help="슬라이딩 스텝 (월)")
-    parser.add_argument("--drl_timesteps",  type=int, default=30_000, help="폴드당 DRL 학습 스텝")
-    parser.add_argument("--alpha",          type=float, default=0.05, help="ANOVA 유의 수준")
-    parser.add_argument("--save_path",      type=str, default=None, help="결과 JSON 저장 경로")
+    parser.add_argument("--start",          type=str,   default="2019-01-01",  help="데이터 시작일")
+    parser.add_argument("--end",            type=str,   default="2024-12-31",  help="데이터 종료일")
+    parser.add_argument("--train_months",   type=int,   default=24,    help="훈련 기간 (월)")
+    parser.add_argument("--test_months",    type=int,   default=6,     help="테스트 기간 (월)")
+    parser.add_argument("--step_months",    type=int,   default=6,     help="슬라이딩 스텝 (월)")
+    parser.add_argument("--drl_timesteps",  type=int,   default=150_000, help="폴드당 DRL 학습 스텝 (기본 150k)")
+    parser.add_argument("--n_seeds",        type=int,   default=3,     help="DRL 앙상블 시드 수")
+    parser.add_argument("--n_jobs",         type=int,   default=1,     help="병렬 폴드 수 (코어 수, 기본 1=순차)")
+    parser.add_argument("--alpha",          type=float, default=0.05,  help="ANOVA 유의 수준")
+    parser.add_argument("--save_path",      type=str,   default=None,  help="결과 JSON 저장 경로")
     args = parser.parse_args()
 
     with open(CONFIG_PATH, encoding="utf-8") as f:
@@ -74,8 +76,10 @@ def main():
         window_size=env_cfg["window_size"],
         transaction_cost=env_cfg["transaction_cost"],
         slippage=env_cfg.get("slippage", 0.0005),
-        max_drawdown_threshold=env_cfg.get("max_drawdown_threshold", 0.15),
+        max_drawdown_threshold=env_cfg.get("max_drawdown_threshold", 0.25),
         risk_free_rate=cfg.get("backtest", {}).get("risk_free_rate", 0.02),
+        n_seeds=args.n_seeds,
+        n_jobs=args.n_jobs,
         verbose=True,
     )
 
@@ -99,4 +103,6 @@ def main():
 
 
 if __name__ == "__main__":
+    import multiprocessing
+    multiprocessing.set_start_method("fork", force=True)  # Linux/WSL2 기본값 명시
     main()

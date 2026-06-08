@@ -42,11 +42,11 @@ class PortfolioEnv(gym.Env):
         window_size: int = 20,
         transaction_cost: float = 0.00015,
         slippage: float = 0.0005,
-        risk_penalty_lambda: float = 0.5,
-        drawdown_penalty_mu: float = 1.0,
+        risk_penalty_lambda: float = 0.1,
+        drawdown_penalty_mu: float = 0.3,
         reward_variant: RewardVariant = RewardVariant.R3_FULL,
         sharpe_window: int = 60,
-        max_drawdown_threshold: float = 0.15,
+        max_drawdown_threshold: float = 0.25,
         render_mode: Optional[str] = None,
     ):
         super().__init__()

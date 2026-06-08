@@ -14,7 +14,7 @@ environment:
   initial_balance: 1000000
   transaction_cost: 0.00015
   slippage: 0.0005
-  max_drawdown_threshold: 0.15
+  max_drawdown_threshold: 0.25
 
 risk:
   tag_names:
@@ -26,8 +26,8 @@ risk:
   decay_rate: 0.95
 
 reward:
-  risk_penalty_lambda: 0.5
-  drawdown_penalty_mu: 1.0
+  risk_penalty_lambda: 0.1
+  drawdown_penalty_mu: 0.3
 
 training:
   total_timesteps: 500000

@@ -49,7 +49,9 @@ def main():
     parser.add_argument("--train_months",   type=int,   default=24)
     parser.add_argument("--test_months",    type=int,   default=6)
     parser.add_argument("--step_months",    type=int,   default=6)
-    parser.add_argument("--drl_timesteps",  type=int,   default=30_000)
+    parser.add_argument("--drl_timesteps",  type=int,   default=150_000, help="폴드당 DRL 학습 스텝 (기본 150k)")
+    parser.add_argument("--n_seeds",        type=int,   default=3,       help="DRL 앙상블 시드 수")
+    parser.add_argument("--n_jobs",         type=int,   default=1,       help="병렬 폴드 수 (코어 수, 기본 1=순차)")
     parser.add_argument("--threshold_bull", type=float, default=0.10,
                         help="Bull 국면 최소 CAGR (연환산)")
     parser.add_argument("--threshold_bear", type=float, default=-0.10,
@@ -79,10 +81,12 @@ def main():
         window_size=env_cfg["window_size"],
         transaction_cost=env_cfg["transaction_cost"],
         slippage=env_cfg.get("slippage", 0.0005),
-        max_drawdown_threshold=env_cfg.get("max_drawdown_threshold", 0.15),
+        max_drawdown_threshold=env_cfg.get("max_drawdown_threshold", 0.25),
         risk_free_rate=cfg.get("backtest", {}).get("risk_free_rate", 0.02),
         threshold_bull=args.threshold_bull,
         threshold_bear=args.threshold_bear,
+        n_seeds=args.n_seeds,
+        n_jobs=args.n_jobs,
         verbose=True,
     )
 
@@ -109,4 +113,6 @@ def main():
 
 
 if __name__ == "__main__":
+    import multiprocessing
+    multiprocessing.set_start_method("fork", force=True)  # Linux/WSL2 기본값 명시
     main()

@@ -5,7 +5,14 @@ from stable_baselines3.common.callbacks import CheckpointCallback
 
 
 class PPOAgent:
-    def __init__(self, env, learning_rate: float = 3e-4, batch_size: int = 256):
+    def __init__(
+        self,
+        env,
+        learning_rate: float = 3e-4,
+        batch_size: int = 256,
+        seed: int = 0,
+        verbose: int = 1,
+    ):
         self.model = PPO(
             "MlpPolicy",
             env,
@@ -13,7 +20,8 @@ class PPOAgent:
             batch_size=batch_size,
             n_steps=2048,
             gamma=0.99,
-            verbose=1,
+            seed=seed,
+            verbose=verbose,
         )
 
     def train(self, total_timesteps: int, checkpoint_dir: str = "checkpoints/", callbacks: list = None) -> None:

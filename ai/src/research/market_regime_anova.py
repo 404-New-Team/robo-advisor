@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import enum
 import json
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Optional
@@ -104,37 +105,113 @@ class TwoWayANOVAResult:
 # 데이터 수집
 # ─────────────────────────────────────────────────────────────
 
-def collect_regime_returns(
-    prices: pd.DataFrame,
-    train_months: int = 24,
-    test_months: int = 6,
-    step_months: int = 6,
-    drl_timesteps: int = 30_000,
-    window_size: int = 20,
-    transaction_cost: float = 0.00015,
-    slippage: float = 0.0005,
-    max_drawdown_threshold: float = 0.15,
-    risk_free_rate: float = 0.02,
-    threshold_bull: float = 0.10,
-    threshold_bear: float = -0.10,
-    verbose: bool = True,
-) -> list[dict]:
+def _run_regime_fold(args: dict) -> dict:
     """
-    Walk-Forward 각 폴드에서 전략별 CAGR + 시장 국면 레이블을 수집한다.
-
-    Returns:
-        [{"strategy": str, "regime": str, "cagr": float, "fold": int}, ...]
+    단일 폴드의 국면 분류 + EW·MVO·DRL CAGR 계산 — ProcessPoolExecutor 워커.
     """
     from ..backtest.mvo import MVO, MVOConfig
     from ..envs.portfolio_env import PortfolioEnv
     from ..envs.risk_state import RiskState
     from ..agents.ppo_agent import PPOAgent
     from ..backtest.metrics import compute_metrics
-
     from ..research.strategy_anova import (
-        _build_fold_dates, _slice,
-        _equal_weight_cagr, _fixed_weight_cagr, _rollout,
+        _equal_weight_cagr_with_cost, _fixed_weight_cagr_with_cost, _rollout_full,
     )
+
+    fold_idx         = args["fold_idx"]
+    train_prices     = args["train_prices"]
+    test_prices      = args["test_prices"]
+    n_seeds          = args["n_seeds"]
+    drl_timesteps    = args["drl_timesteps"]
+    window_size      = args["window_size"]
+    transaction_cost = args["transaction_cost"]
+    slippage         = args["slippage"]
+    mdd_threshold    = args["mdd_threshold"]
+    risk_free_rate   = args["risk_free_rate"]
+    trading_days     = args["trading_days"]
+    threshold_bull   = args["threshold_bull"]
+    threshold_bear   = args["threshold_bear"]
+    ppo_verbose      = args.get("ppo_verbose", 0)
+
+    regime = classify_fold_regime(test_prices, threshold_bull, threshold_bear)
+
+    ew_cagr = _equal_weight_cagr_with_cost(test_prices, transaction_cost, slippage)
+
+    mvo = MVO(MVOConfig(target="max_sharpe", risk_free_rate=risk_free_rate, trading_days=trading_days))
+    mvo.fit(train_prices)
+    mvo_cagr = _fixed_weight_cagr_with_cost(
+        test_prices, mvo.get_weights(), transaction_cost, slippage
+    )
+
+    agents = []
+    for seed_idx in range(n_seeds):
+        train_env = PortfolioEnv(
+            prices=train_prices,
+            risk_state=RiskState(),
+            window_size=window_size,
+            transaction_cost=transaction_cost,
+            slippage=slippage,
+            max_drawdown_threshold=mdd_threshold,
+        )
+        agent = PPOAgent(env=train_env, seed=seed_idx * 42, verbose=ppo_verbose)
+        agent.train(
+            total_timesteps=drl_timesteps,
+            checkpoint_dir=f"checkpoints/regime_anova_fold_{fold_idx:02d}_seed{seed_idx}/",
+        )
+        agents.append(agent)
+
+    test_env = PortfolioEnv(
+        prices=test_prices,
+        risk_state=RiskState(),
+        window_size=window_size,
+        transaction_cost=transaction_cost,
+        slippage=slippage,
+        max_drawdown_threshold=mdd_threshold,
+    )
+    pv, dr = _rollout_full(agents, test_env, test_prices)
+    perf = compute_metrics(
+        daily_returns=dr,
+        portfolio_values=pv,
+        n_bars=len(test_prices),
+        trading_days=trading_days,
+        risk_free_rate=risk_free_rate,
+    )
+
+    return {
+        "fold_idx":    fold_idx,
+        "regime":      regime.value,
+        "DRL":         float(perf.cagr),
+        "MVO":         float(mvo_cagr),
+        "EqualWeight": float(ew_cagr),
+    }
+
+
+def collect_regime_returns(
+    prices: pd.DataFrame,
+    train_months: int = 24,
+    test_months: int = 6,
+    step_months: int = 6,
+    drl_timesteps: int = 150_000,
+    window_size: int = 20,
+    transaction_cost: float = 0.00015,
+    slippage: float = 0.0005,
+    max_drawdown_threshold: float = 0.25,
+    risk_free_rate: float = 0.02,
+    threshold_bull: float = 0.10,
+    threshold_bear: float = -0.10,
+    n_seeds: int = 3,
+    n_jobs: int = 1,
+    verbose: bool = True,
+) -> list[dict]:
+    """
+    Walk-Forward 각 폴드에서 전략별 CAGR + 시장 국면 레이블을 수집한다.
+
+    n_jobs > 1 이면 ProcessPoolExecutor로 폴드를 병렬 처리한다.
+
+    Returns:
+        [{"strategy": str, "regime": str, "cagr": float, "fold": int}, ...]
+    """
+    from ..research.strategy_anova import _build_fold_dates, _slice
     from ..backtest.walk_forward import WalkForwardConfig
 
     wf_cfg = WalkForwardConfig(
@@ -153,11 +230,7 @@ def collect_regime_returns(
     if not folds_dates:
         raise ValueError("유효한 폴드가 없습니다.")
 
-    if verbose:
-        print(f"[국면 ANOVA] 총 {len(folds_dates)}개 폴드")
-
-    records: list[dict] = []
-
+    fold_args = []
     for fold_idx, (train_start, train_end, test_start, test_end) in enumerate(folds_dates):
         train_prices = _slice(prices, train_start, train_end)
         test_prices  = _slice(prices, test_start, test_end)
@@ -167,62 +240,55 @@ def collect_regime_returns(
                 print(f"  Fold {fold_idx:02d} 건너뜀 (훈련 데이터 부족)")
             continue
 
-        regime = classify_fold_regime(test_prices, threshold_bull, threshold_bear)
-        if verbose:
-            print(f"\n  Fold {fold_idx:02d} | 테스트: {test_start.date()} ~ {test_end.date()} | 국면: {regime.value}")
+        fold_args.append({
+            "fold_idx":         fold_idx,
+            "train_prices":     train_prices,
+            "test_prices":      test_prices,
+            "n_seeds":          n_seeds,
+            "drl_timesteps":    drl_timesteps,
+            "window_size":      window_size,
+            "transaction_cost": transaction_cost,
+            "slippage":         slippage,
+            "mdd_threshold":    max_drawdown_threshold,
+            "risk_free_rate":   risk_free_rate,
+            "trading_days":     wf_cfg.trading_days_per_year,
+            "threshold_bull":   threshold_bull,
+            "threshold_bear":   threshold_bear,
+            "ppo_verbose":      0 if n_jobs > 1 else int(verbose),
+        })
 
-        # ── EqualWeight ────────────────────────────────────────
-        ew_cagr = _equal_weight_cagr(test_prices, risk_free_rate)
-        records.append({"strategy": "EqualWeight", "regime": regime.value,
-                         "cagr": ew_cagr, "fold": fold_idx})
-        if verbose:
-            print(f"    EqualWeight CAGR: {ew_cagr:+.2%}")
-
-        # ── MVO ────────────────────────────────────────────────
-        mvo = MVO(MVOConfig(target="max_sharpe", risk_free_rate=risk_free_rate,
-                             trading_days=wf_cfg.trading_days_per_year))
-        mvo.fit(train_prices)
-        mvo_cagr = _fixed_weight_cagr(test_prices, mvo.get_weights(), risk_free_rate)
-        records.append({"strategy": "MVO", "regime": regime.value,
-                         "cagr": mvo_cagr, "fold": fold_idx})
-        if verbose:
-            print(f"    MVO        CAGR: {mvo_cagr:+.2%}")
-
-        # ── DRL ────────────────────────────────────────────────
-        train_env = PortfolioEnv(
-            prices=train_prices,
-            risk_state=RiskState(),
-            window_size=window_size,
-            transaction_cost=transaction_cost,
-            slippage=slippage,
-            max_drawdown_threshold=max_drawdown_threshold,
-        )
-        agent = PPOAgent(env=train_env)
-        agent.train(
-            total_timesteps=drl_timesteps,
-            checkpoint_dir=f"checkpoints/regime_anova_fold_{fold_idx:02d}/",
+    n_workers = min(n_jobs, len(fold_args))
+    if verbose:
+        mode = f"병렬 {n_workers}코어" if n_workers > 1 else "순차"
+        print(
+            f"[국면 ANOVA] 총 {len(fold_args)}개 폴드 | {mode} | "
+            f"DRL seeds={n_seeds} timesteps={drl_timesteps:,}"
         )
 
-        test_env = PortfolioEnv(
-            prices=test_prices,
-            risk_state=RiskState(),
-            window_size=window_size,
-            transaction_cost=transaction_cost,
-            slippage=slippage,
-            max_drawdown_threshold=max_drawdown_threshold,
-        )
-        pv, dr = _rollout(agent, test_env)
-        perf = compute_metrics(
-            daily_returns=dr,
-            portfolio_values=pv,
-            n_bars=len(test_prices),
-            trading_days=wf_cfg.trading_days_per_year,
-            risk_free_rate=risk_free_rate,
-        )
-        records.append({"strategy": "DRL", "regime": regime.value,
-                         "cagr": perf.cagr, "fold": fold_idx})
+    if n_workers > 1:
+        with ProcessPoolExecutor(max_workers=n_workers) as executor:
+            fold_results = list(executor.map(_run_regime_fold, fold_args))
+    else:
+        fold_results = []
+        for args in fold_args:
+            fold_results.append(_run_regime_fold(args))
+
+    fold_results.sort(key=lambda x: x["fold_idx"])
+
+    records: list[dict] = []
+    for fr in fold_results:
+        regime_val = fr["regime"]
+        fold_idx   = fr["fold_idx"]
+        records.append({"strategy": "EqualWeight", "regime": regime_val, "cagr": fr["EqualWeight"], "fold": fold_idx})
+        records.append({"strategy": "MVO",         "regime": regime_val, "cagr": fr["MVO"],         "fold": fold_idx})
+        records.append({"strategy": "DRL",         "regime": regime_val, "cagr": fr["DRL"],         "fold": fold_idx})
         if verbose:
-            print(f"    DRL        CAGR: {perf.cagr:+.2%}")
+            print(
+                f"  Fold {fold_idx:02d} [{regime_val:8s}] | "
+                f"EW={fr['EqualWeight']:+.2%}  "
+                f"MVO={fr['MVO']:+.2%}  "
+                f"DRL={fr['DRL']:+.2%}"
+            )
 
     if verbose:
         df = pd.DataFrame(records)

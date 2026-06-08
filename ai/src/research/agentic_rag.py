@@ -627,12 +627,14 @@ class AgenticRAGResearchAgent:
         risk_tags: list[RiskTag],
         portfolio_context: Optional[dict[str, Any]] = None,
     ) -> str:
+        normalized_citations = [Citation(**c) if not isinstance(c, Citation) else c for c in citations]
         try:
             import anthropic
         except Exception:
+            logger.warning("anthropic 패키지 없음 — extractive fallback 사용")
             return self._generate_extractive_report(
                 query,
-                [Citation(**c) for c in citations],
+                normalized_citations,
                 risk_tags,
                 portfolio_context=portfolio_context,
             )
@@ -647,14 +649,16 @@ class AgenticRAGResearchAgent:
         ) or "없음"
         portfolio_block = self._format_portfolio_context(portfolio_context or {})
         prompt = (
-            "아래 정보를 바탕으로 한국어 투자 의견을 작성하세요. "
-            "섹션 제목 없이 의견 내용만 출력하세요.\n\n"
-            f"포트폴리오 문맥:\n{portfolio_block or '없음'}\n\n"
+            "아래 정보를 바탕으로 두 항목만 한국어로 작성하세요.\n\n"
+            "출력 형식 (다른 텍스트 없이 아래 두 줄 형식만):\n"
+            "요약: <현재 포트폴리오의 핵심 리스크를 1~2문장으로 요약>\n"
+            "투자 의견: <리스크 영향과 투자자 행동 지침을 3문장 이상으로 기술>\n\n"
             "작성 기준:\n"
             "- 현재 포트폴리오 구성과 추천 비중을 판단 기준에 반영\n"
-            "- 탐지된 리스크가 포트폴리오에 미치는 영향을 쉬운 한국어 문장으로 3문장 이상 기술\n"
+            "- 탐지된 리스크가 포트폴리오에 미치는 영향을 구체적으로 기술\n"
             "- 뉴스 제목·출처명·[1] 같은 인용 마커 사용 금지\n"
-            "- 리스크 유형별 의미와 투자자가 취해야 할 행동을 구체적으로 안내\n\n"
+            "- 달러 금액 표기 시 '$' 기호 사용 금지, 'USD' 또는 '달러'로 표기\n\n"
+            f"포트폴리오 문맥:\n{portfolio_block or '없음'}\n\n"
             f"탐지된 리스크 태그: {risk_line}\n"
             f"질문: {query}\n\n출처:\n{context}"
         )
@@ -665,14 +669,54 @@ class AgenticRAGResearchAgent:
                 max_tokens=self.config.max_tokens,
                 messages=[{"role": "user", "content": prompt}],
             )
-            return "".join(block.text for block in response.content if getattr(block, "type", "") == "text")
-        except Exception:
+            raw = "".join(block.text for block in response.content if getattr(block, "type", "") == "text")
+        except Exception as exc:
+            logger.error("_generate_with_claude Claude API 호출 실패 (model=%s): %s", self.config.llm_model, exc)
             return self._generate_extractive_report(
                 query,
-                [Citation(**c) for c in citations],
+                normalized_citations,
                 risk_tags,
                 portfolio_context=portfolio_context,
             )
+
+        # Claude 응답에서 요약/투자 의견 파싱
+        summary_text = ""
+        opinion_text = ""
+        for line in raw.splitlines():
+            line = line.strip()
+            if line.startswith("요약:"):
+                summary_text = line[len("요약:"):].strip()
+            elif line.startswith("투자 의견:"):
+                opinion_text = line[len("투자 의견:"):].strip()
+            elif opinion_text:
+                opinion_text += " " + line
+        if not summary_text or not opinion_text:
+            logger.warning("_generate_with_claude 응답 파싱 실패, extractive fallback 사용. raw=%r", raw[:200])
+            return self._generate_extractive_report(
+                query,
+                normalized_citations,
+                risk_tags,
+                portfolio_context=portfolio_context,
+            )
+
+        # extractive와 동일한 구조로 조립
+        link_lines = self._format_document_portfolio_links(normalized_citations)
+        portfolio_section = (
+            "포트폴리오 구성/비중 기준:\n" + portfolio_block + "\n\n"
+            if portfolio_block
+            else ""
+        )
+        link_section = (
+            "\n\n종목/섹터 리스크 연결:\n" + "\n".join(link_lines) + "\n\n"
+            if link_lines
+            else "\n\n"
+        )
+        return (
+            portfolio_section
+            + f"요약: {summary_text}\n\n"
+            + link_section
+            + f"투자 의견: {opinion_text}"
+        )
 
     _RISK_NAME_KO: dict[str, str] = {
         "regulatory_risk": "규제",
