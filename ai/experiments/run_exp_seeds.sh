@@ -1,0 +1,91 @@
+#!/bin/bash
+# 실험 2-3: 멀티 시드 앙상블 실험
+# 모든 조건을 동일하게 유지하고 n_seeds만 변경하여 공정하게 비교한다.
+#
+# 사용법:
+#   cd ai
+#   bash experiments/run_exp_seeds.sh
+#   bash experiments/run_exp_seeds.sh --timesteps 300000   # 사용할 훈련 스텝 지정
+#   bash experiments/run_exp_seeds.sh --skip 1             # 특정 시드 수 건너뜀
+
+set -e
+cd "$(dirname "$0")/.."
+
+# ── 공통 설정 (모든 실험 동일) ─────────────────────────────────────────────
+START="2019-01-01"
+END="2026-06-08"
+TRAIN_MONTHS=24
+TEST_MONTHS=6
+STEP_MONTHS=6
+N_ENVS=4
+TIMESTEPS=150000   # 실험 2-2 완료 후 최적 스텝으로 교체 권장
+
+SEEDS_LIST=(1 3 5)
+
+# 인자 파싱
+SKIP=()
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --timesteps) TIMESTEPS="$2"; shift 2 ;;
+        --skip) shift; while [[ $# -gt 0 && $1 != --* ]]; do SKIP+=("$1"); shift; done ;;
+        *) shift ;;
+    esac
+done
+
+should_skip() {
+    for s in "${SKIP[@]}"; do [[ "$s" == "$1" ]] && return 0; done
+    return 1
+}
+
+echo "====================================================="
+echo "  실험 2-3: 멀티 시드 앙상블 실험"
+echo "  기간: $START ~ $END"
+echo "  train=${TRAIN_MONTHS}mo / test=${TEST_MONTHS}mo / step=${STEP_MONTHS}mo"
+echo "  timesteps=$TIMESTEPS / n_envs=$N_ENVS"
+echo "====================================================="
+echo ""
+
+TOTAL=${#SEEDS_LIST[@]}
+IDX=0
+
+for N_SEEDS in "${SEEDS_LIST[@]}"; do
+    IDX=$((IDX + 1))
+
+    if should_skip "$N_SEEDS"; then
+        echo "[$IDX/$TOTAL] n_seeds=$N_SEEDS — 건너뜀 (--skip 지정)"
+        echo ""
+        continue
+    fi
+
+    OUTFILE="experiments/results/walk_forward_tm${TRAIN_MONTHS}_tt${TEST_MONTHS}_ts${TIMESTEPS}_s${N_SEEDS}.json"
+
+    if [[ -f "$OUTFILE" ]]; then
+        echo "[$IDX/$TOTAL] n_seeds=$N_SEEDS — 이미 존재: $OUTFILE (건너뜀)"
+        echo "  재실행하려면 파일을 삭제 후 다시 실행하세요."
+        echo ""
+        continue
+    fi
+
+    echo "[$IDX/$TOTAL] n_seeds=$N_SEEDS 시작..."
+    START_TIME=$(date +%s)
+
+    python experiments/walk_forward_experiment.py \
+        --start         "$START" \
+        --end           "$END" \
+        --train_months  $TRAIN_MONTHS \
+        --test_months   $TEST_MONTHS \
+        --step_months   $STEP_MONTHS \
+        --drl_timesteps $TIMESTEPS \
+        --n_seeds       $N_SEEDS \
+        --n_envs        $N_ENVS
+
+    END_TIME=$(date +%s)
+    ELAPSED=$(( END_TIME - START_TIME ))
+    echo "  완료: ${ELAPSED}초 소요 → $OUTFILE"
+    echo ""
+done
+
+echo "====================================================="
+echo "  모든 실험 완료. 비교 분석 실행:"
+echo "  python experiments/compare_exp_seeds.py --timesteps $TIMESTEPS"
+echo "====================================================="

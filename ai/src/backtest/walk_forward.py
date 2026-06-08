@@ -22,6 +22,7 @@ from ..agents.ppo_agent import PPOAgent
 from ..envs.portfolio_env import PortfolioEnv, RewardVariant
 from ..envs.risk_state import RiskState
 from .metrics import PerformanceMetrics, compute_metrics
+from stable_baselines3.common.vec_env import SubprocVecEnv, DummyVecEnv
 
 
 # ─────────────────────────────────────────────────────────────
@@ -34,16 +35,19 @@ class WalkForwardConfig:
     test_months: int = 6
     step_months: int = 6
     min_train_bars: int = 200
-    train_timesteps: int = 50_000
+    train_timesteps: int = 150_000
     learning_rate: float = 3e-4
     batch_size: int = 256
     window_size: int = 20
     transaction_cost: float = 0.00015
     slippage: float = 0.0005
-    max_drawdown_threshold: float = 0.15
+    max_drawdown_threshold: float = 0.25
     reward_variant: RewardVariant = RewardVariant.R3_FULL
+    risk_penalty_lambda: float = 0.1
     risk_free_rate: float = 0.02
     trading_days_per_year: int = 252
+    n_seeds: int = 1
+    n_envs: int = 4
 
 
 @dataclass
@@ -213,21 +217,58 @@ class WalkForwardBacktest:
                 print(f"  → 훈련 데이터 부족 ({len(train_prices)}봉), 건너뜀")
             return None
 
-        # ── 훈련 ──────────────────────────────────────────────────
-        train_env = self._make_env(train_prices)
-        agent = PPOAgent(
-            env=train_env,
-            learning_rate=self.cfg.learning_rate,
-            batch_size=self.cfg.batch_size,
-        )
-        agent.train(
-            total_timesteps=self.cfg.train_timesteps,
-            checkpoint_dir=f"checkpoints/fold_{fold_idx:02d}/",
-        )
+        # ── 훈련 환경 생성 (n_envs개 병렬) ───────────────────────────
+        def make_train_env():
+            import copy
+            risk = copy.deepcopy(self.risk_state) if self.risk_state is not None else RiskState()
+            return PortfolioEnv(
+                prices=train_prices,
+                risk_state=risk,
+                window_size=self.cfg.window_size,
+                transaction_cost=self.cfg.transaction_cost,
+                slippage=self.cfg.slippage,
+                max_drawdown_threshold=self.cfg.max_drawdown_threshold,
+                reward_variant=self.cfg.reward_variant,
+                risk_penalty_lambda=self.cfg.risk_penalty_lambda,
+            )
 
-        # ── 테스트 추론 ────────────────────────────────────────────
+        if self.cfg.n_envs > 1:
+            train_env = SubprocVecEnv([make_train_env] * self.cfg.n_envs)
+        else:
+            train_env = make_train_env()
+
+        # ── 훈련 (n_seeds 앙상블) ──────────────────────────────────
+        agents = []
+        for seed in range(self.cfg.n_seeds):
+            if seed == 0:
+                env_for_seed = train_env
+            elif self.cfg.n_envs > 1:
+                env_for_seed = SubprocVecEnv([make_train_env] * self.cfg.n_envs)
+            else:
+                env_for_seed = make_train_env()
+
+            agent = PPOAgent(
+                env=env_for_seed,
+                learning_rate=self.cfg.learning_rate,
+                batch_size=self.cfg.batch_size,
+                seed=seed,
+                verbose=0,
+            )
+            agent.train(
+                total_timesteps=self.cfg.train_timesteps,
+                checkpoint_dir=f"checkpoints/fold_{fold_idx:02d}/seed_{seed}/",
+            )
+            agents.append(agent)
+
+            if seed > 0 and self.cfg.n_envs > 1:
+                env_for_seed.close()
+
+        if self.cfg.n_envs > 1:
+            train_env.close()
+
+        # ── 테스트 추론 (앙상블 평균 행동) ────────────────────────
         test_env = self._make_env(test_prices)
-        portfolio_values, daily_returns = self._rollout(agent, test_env)
+        portfolio_values, daily_returns = self._rollout(agents, test_env)
 
         # ── 벤치마크: 동일가중 Buy & Hold ─────────────────────────
         n_steps = len(daily_returns)
@@ -268,17 +309,21 @@ class WalkForwardBacktest:
             slippage=self.cfg.slippage,
             max_drawdown_threshold=self.cfg.max_drawdown_threshold,
             reward_variant=self.cfg.reward_variant,
+            risk_penalty_lambda=self.cfg.risk_penalty_lambda,
         )
 
     @staticmethod
-    def _rollout(agent: PPOAgent, env: PortfolioEnv):
+    def _rollout(agents, env: PortfolioEnv):
         obs, _ = env.reset()
         portfolio_values = [1.0]
         daily_returns = []
         done = False
 
+        agent_list = agents if isinstance(agents, list) else [agents]
+
         while not done:
-            action = agent.predict(obs)
+            actions = np.array([a.predict(obs) for a in agent_list])
+            action = np.mean(actions, axis=0)
             obs, _, terminated, truncated, info = env.step(action)
             done = terminated or truncated
             portfolio_values.append(info["portfolio_value"])

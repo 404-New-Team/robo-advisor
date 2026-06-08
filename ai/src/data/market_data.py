@@ -3,6 +3,11 @@ import os
 import pandas as pd
 import yfinance as yf
 from pathlib import Path
+try:
+    from dotenv import load_dotenv  # type: ignore[import]
+    load_dotenv()
+except ImportError:
+    pass
 
 CACHE_DIR = Path(__file__).parent.parent / ".cache" / "market"
 

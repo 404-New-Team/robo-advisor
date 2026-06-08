@@ -1,8 +1,8 @@
 """
 포트폴리오 관리 RL 환경 (Gymnasium 호환).
 
-관측 공간: [시장 피처 (n_assets×11)] + [리스크 태그 (n_tags)] + [현재 비중 (n_assets)]
-  시장 피처 11개: ret1d, ret5d, ret20d, vol20d, mom20d + rsi14, macd, macd_signal, bb_upper, bb_lower, bb_position
+관측 공간: [시장 피처 (n_assets×8)] + [리스크 태그 (n_tags)] + [현재 비중 (n_assets)]
+  시장 피처 8개: ret1d, ret5d, ret20d, vol20d, mom20d + rsi14, macd, bb_position
 행동 공간: logit 벡터 → softmax → 포트폴리오 비중 (합=1)
 보상 함수 변형 (RewardVariant):
   R1_LOGRET : 로그 수익률만 (baseline)
@@ -78,8 +78,8 @@ class PortfolioEnv(gym.Env):
                 f"yfinance 다운로드 실패 또는 캐시 손상일 수 있습니다."
             )
 
-        # 관측 공간: 시장특성(n_assets*11, 기본5+기술지표6) + 리스크태그(n_tags) + 현재비중(n_assets)
-        n_obs = self.n_assets * 11 + self.n_tags + self.n_assets
+        # 관측 공간: 시장특성(n_assets*8, 기본5+기술지표3) + 리스크태그(n_tags) + 현재비중(n_assets)
+        n_obs = self.n_assets * 8 + self.n_tags + self.n_assets
         self.observation_space = spaces.Box(
             low=-np.inf, high=np.inf, shape=(n_obs,), dtype=np.float32
         )
@@ -159,30 +159,36 @@ class PortfolioEnv(gym.Env):
         return self._reward_full(portfolio_return, weights)
 
     def _reward_logret(self, portfolio_return: float) -> float:
-        """R1: 로그 수익률만 (baseline)."""
-        return float(np.log1p(portfolio_return + 1e-8))
+        """R1: 스케일된 로그 수익률 (baseline). ×100으로 PPO 그래디언트 신호 확보."""
+        return float(np.log1p(portfolio_return + 1e-8) * 100)
 
     def _reward_sharpe(self, portfolio_return: float) -> float:
         """R2: 롤링 Sharpe ratio — 위험 조정 수익률."""
         log_ret = np.log1p(portfolio_return + 1e-8)
         history = list(self._return_history)
         if len(history) < 2:
-            return float(log_ret)
+            return float(log_ret * 100)
         mu = float(np.mean(history))
         sigma = float(np.std(history, ddof=1)) + 1e-8
         return float(mu / sigma)
 
     def _reward_full(self, portfolio_return: float, weights: np.ndarray) -> float:
-        """R3: 로그 수익률 - 리스크 집중도 페널티 - 낙폭 페널티."""
-        log_ret = np.log1p(portfolio_return + 1e-8)
+        """R3: 스케일된 로그 수익률 - 리스크 집중도 페널티 - 낙폭 페널티(종료 시만).
 
-        # Herfindahl 집중도 지수 × 집계 리스크 수준
+        drawdown 패널티를 매 스텝 누적하면 신호를 압도하므로,
+        MDD 임계 초과로 에피소드가 끝날 때만 한 번 적용한다.
+        """
+        log_ret = float(np.log1p(portfolio_return + 1e-8) * 100)
+
+        # 리스크 태그가 주입됐을 때만 집중도 페널티 적용
         aggregate_risk = float(np.mean(self.risk_state.to_array()))
         concentration = float(np.sum(weights ** 2))
-        risk_penalty = self.risk_penalty_lambda * aggregate_risk * concentration
+        risk_penalty = self.risk_penalty_lambda * aggregate_risk * concentration * 100
 
         drawdown = (self._peak_value - self._portfolio_value) / (self._peak_value + 1e-8)
-        drawdown_penalty = self.drawdown_penalty_mu * drawdown
+        # 매 스텝이 아닌 MDD 임계 초과 시에만 한 번 패널티
+        at_threshold = float(drawdown) >= self.max_drawdown_threshold * 0.9
+        drawdown_penalty = self.drawdown_penalty_mu * drawdown * 100 if at_threshold else 0.0
 
         return float(log_ret - risk_penalty - drawdown_penalty)
 

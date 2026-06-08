@@ -460,6 +460,8 @@ class BacktestRequest(BaseModel):
     strategy: str = Field("drl", pattern="^(drl|mvo|equal_weight)$")
     start_date: str
     end_date: str
+    train_months: int = Field(24, ge=6, le=120)
+    test_months: int = Field(6, ge=1, le=24)
 
 
 class ANOVARequest(BaseModel):
@@ -887,14 +889,24 @@ async def backtest(req: BacktestRequest):
         from ..backtest.mvo import MVO, MVOConfig, run_mvo_walk_forward
         from ..backtest.walk_forward import WalkForwardBacktest, WalkForwardConfig
 
+        kospi_ret, sp500_ret = _fetch_benchmark_returns(req.start_date, req.end_date)
+
+        # ── compare_experiment 결과 우선 사용 (세 전략이 동일 폴드로 비교된 파일) ──
+        strategy_key_map = {"drl": "DRL", "mvo": "MVO", "equal_weight": "EqualWeight"}
+        cmp_fname = f"comparison_tm{req.train_months}_tt{req.test_months}.json"
+        cmp_path = RESULTS_DIR / cmp_fname
+        if cmp_path.exists():
+            cmp = _load_json(cmp_path, {})
+            key = strategy_key_map.get(req.strategy)
+            if key and cmp.get(key, {}).get("folds"):
+                return _build_wf_response(req.strategy, cmp[key], kospi_ret, sp500_ret)
+
         prices = _get_or_fetch_prices(req.tickers, req.start_date, req.end_date)
         if prices.empty or len(prices) < 60:
             raise ValueError(f"백테스트 데이터 부족: {len(prices)}행 (최소 60 거래일 필요)")
 
         tickers = list(prices.columns)
         n = len(tickers)
-
-        kospi_ret, sp500_ret = _fetch_benchmark_returns(req.start_date, req.end_date)
 
         # ── equal_weight ────────────────────────────────────────────────────
         if req.strategy == "equal_weight":
@@ -1001,6 +1013,7 @@ def _eta_squared_interp(eta_sq: float) -> str:
 def _run_reward_variant_anova(prices: pd.DataFrame, alpha: float, n_episodes: int) -> dict:
     """검증 1 — 보상 함수 변형 3종 One-way ANOVA."""
     from dataclasses import asdict
+    from scipy.stats import f_oneway
     from ..research.anova_analysis import collect_episode_rewards, run_anova
 
     variant_names = ["R1_LOGRET", "R2_SHARPE", "R3_FULL"]
@@ -1017,6 +1030,10 @@ def _run_reward_variant_anova(prices: pd.DataFrame, alpha: float, n_episodes: in
     eta_sq = round(ss_between / ss_total if ss_total > 1e-12 else 0.0, 4)
 
     result_dict = asdict(result)
+    # run_anova 내부에서 round(p, 6) 처리 → 매우 작은 p가 0.0으로 손실됨.
+    # scipy 직접 호출로 전체 정밀도 p-value 복원.
+    _, p_full = f_oneway(*all_data)
+    result_dict["p_value"] = float(p_full)
     result_dict["eta_squared"] = eta_sq
     result_dict["eta_squared_interp"] = _eta_squared_interp(eta_sq)
     return _sanitize_json(result_dict)
@@ -1100,14 +1117,21 @@ async def run_anova_analysis(req: ANOVARequest):
         if all(len(v) == 0 for v in strategy_returns.values()):
             raise ValueError("유효한 폴드 데이터가 없습니다.")
 
+        from scipy.stats import f_oneway
+
         v2_result = run_strategy_anova(strategy_returns, alpha=req.alpha, metric_name="fold_cagr")
         v2 = _sanitize_json(asdict(v2_result))
+        # run_strategy_anova도 내부에서 round(p, 6) 처리 → full-precision 복원
+        if strategy_returns and all(strategy_returns.values()):
+            _, p_v2_full = f_oneway(*[np.array(v) for v in strategy_returns.values()])
+            v2["p_value"] = float(p_v2_full)
 
         v3 = {"error": "폴드 수 부족으로 Two-way ANOVA 불가"}
         if len(fold_records) >= 6:
             try:
                 v3_result = run_twoway_anova(fold_records, alpha=req.alpha, metric_name="fold_cagr")
                 v3 = _sanitize_json(asdict(v3_result))
+                # two-way ANOVA 테이블 p-value도 full-precision으로 보존됨 (statsmodels 사용 시)
             except Exception as exc:
                 logger.warning("Two-way ANOVA 실패: %s", exc)
                 v3 = {"error": str(exc)}

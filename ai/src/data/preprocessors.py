@@ -59,11 +59,13 @@ def calculate_bb_position(prices: pd.DataFrame, period: int = 20, num_std: float
 
 def compute_features(prices: pd.DataFrame, window: int = 20) -> pd.DataFrame:
     """
-    각 자산에 대해 11개 피처 계산:
+    각 자산에 대해 8개 피처 계산 (중복 제거):
     기본 (5개): [1d수익률, 5d수익률, 20d수익률, 20d변동성, 모멘텀]
-    기술적 지표 (6개): [RSI, MACD, MACD신호, BB상단, BB하단, BB위치]
+    기술적 지표 (3개): [RSI, MACD, BB위치]
+      - bb_upper/bb_lower 제거: bb_position으로 이미 표현됨
+      - macd_signal 제거: macd와 고도로 상관됨
     모든 피처는 롤링 Z-score 정규화로 정상성 확보.
-    반환: shape (T, n_assets * 11), columns = {ticker}_{suffix}
+    반환: shape (T, n_assets * 8), columns = {ticker}_{suffix}
     """
     rets = log_returns(prices)
 
@@ -74,12 +76,9 @@ def compute_features(prices: pd.DataFrame, window: int = 20) -> pd.DataFrame:
         "ret20d": prices.pct_change(20).dropna(),
         "vol20d": rets.rolling(window).std().dropna(),
         "mom20d": (prices / prices.shift(window) - 1).dropna(),
-        # 기술적 지표
+        # 기술적 지표 (비중복 3개만)
         "rsi14": calculate_rsi(prices, 14),
         "macd": calculate_macd(prices)[0],
-        "macd_signal": calculate_macd(prices)[1],
-        "bb_upper": calculate_bollinger_bands(prices)[0],
-        "bb_lower": calculate_bollinger_bands(prices)[2],
         "bb_position": calculate_bb_position(prices),
     }
 
