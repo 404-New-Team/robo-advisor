@@ -13,7 +13,17 @@ from pathlib import Path
 from typing import Any, Optional
 
 from dotenv import load_dotenv
-load_dotenv(Path(__file__).resolve().parents[3] / ".env")
+
+for env_path in (
+    Path.cwd() / ".env",
+    Path(__file__).resolve().parents[2] / ".env",
+    Path(__file__).resolve().parents[3] / ".env",
+):
+    if env_path.exists():
+        load_dotenv(env_path)
+        break
+else:
+    load_dotenv()
 
 import matplotlib
 matplotlib.use("Agg")  # 서버 환경: 헤드리스 렌더링

@@ -132,7 +132,7 @@ class AgenticRAGConfig:
     max_rewrites: int = 2
     max_corrections: int = 2
     min_answer_quality: float = 0.5
-    llm_model: str = "claude-3-5-sonnet-latest"
+    llm_model: str = field(default_factory=lambda: os.getenv("ANTHROPIC_MODEL", "claude-opus-4-7"))
     max_tokens: int = 1200
 
 

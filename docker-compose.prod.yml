@@ -34,8 +34,10 @@ services:
       PYTHONPATH: /app
       MPLBACKEND: Agg
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-opus-4-7}
       KRX_ID: ${KRX_ID:-}
       KRX_PW: ${KRX_PW:-}
+      KRX_OPENAPI_KEY: ${KRX_OPENAPI_KEY:-}
       CHROMA_HOST: chromadb
       CHROMA_PORT: 8000
     volumes:
