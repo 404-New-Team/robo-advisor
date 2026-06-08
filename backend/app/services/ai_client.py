@@ -16,6 +16,7 @@ _ENDPOINT_TIMEOUTS: dict[str, float] = {
     "/ai/shap": 50.0,
     "/ai/research": 200.0,
     "/ai/backtest": 100.0,
+    "/ai/anova": 170.0,
 }
 
 
@@ -84,6 +85,21 @@ async def call_backtest(payload: dict) -> dict:
 
     if response.status_code != 200:
         raise AIServiceError(response.status_code, "AI backtest 오류", response.text)
+    return response.json()
+
+
+async def call_anova(payload: dict) -> dict:
+    endpoint = "/ai/anova"
+    async with _get_client(endpoint) as client:
+        try:
+            response = await client.post(endpoint, json=payload)
+        except httpx.TimeoutException:
+            raise AIServiceError(504, "AI 서비스 응답 시간 초과", f"{_ENDPOINT_TIMEOUTS[endpoint]}초 초과")
+        except httpx.RequestError as e:
+            raise AIServiceError(503, "AI 서비스 연결 실패", str(e))
+
+    if response.status_code != 200:
+        raise AIServiceError(response.status_code, "AI ANOVA 오류", response.text)
     return response.json()
 
 

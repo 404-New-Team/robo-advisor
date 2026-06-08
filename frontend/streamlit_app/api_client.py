@@ -12,6 +12,7 @@ except ImportError:
 API_BASE_URL = (os.getenv("API_BASE_URL") or os.getenv("ROBBY_API_BASE_URL", "http://localhost:8000")).rstrip("/")
 REQUEST_TIMEOUT = float(os.getenv("ROBBY_API_TIMEOUT", "30"))
 REQUEST_TIMEOUT_RESEARCH = float(os.getenv("ROBBY_API_TIMEOUT_RESEARCH", "210"))
+REQUEST_TIMEOUT_ANOVA = float(os.getenv("ROBBY_API_TIMEOUT_ANOVA", "190"))
 USE_MOCK = os.getenv("ROBBY_USE_MOCK", "false").lower() == "true"
 
 
@@ -143,6 +144,77 @@ def research(
     if portfolio_context is not None:
         payload["portfolio_context"] = portfolio_context
     return _request("POST", "/research", token=token, timeout=REQUEST_TIMEOUT_RESEARCH, json=payload)
+
+
+def anova(
+    tickers: list[str],
+    start_date: str | None = None,
+    end_date: str | None = None,
+    alpha: float = 0.05,
+    n_episodes_reward: int = 20,
+    token: str | None = None,
+) -> dict:
+    from datetime import date
+
+    payload: dict = {
+        "tickers": [t for t in tickers if t],
+        "alpha": alpha,
+        "n_episodes_reward": n_episodes_reward,
+        "start_date": start_date or str(date.today().replace(year=date.today().year - 5)),
+        "end_date": end_date or str(date.today()),
+    }
+    if USE_MOCK:
+        return _mock_anova(payload)
+    return _request("POST", "/anova", token=token, timeout=REQUEST_TIMEOUT_ANOVA, json=payload)
+
+
+def _mock_anova(payload: dict) -> dict:
+    """개발용 mock — 검증 3개를 구조만 갖춘 임시 데이터로 반환."""
+    def _oneways(groups: list[str], metric: str | None = None) -> dict:
+        import random
+        rng = random.Random(42)
+        means = {g: rng.uniform(-0.05, 0.15) for g in groups}
+        return {
+            "f_statistic": round(rng.uniform(0.5, 8.0), 4),
+            "p_value": round(rng.uniform(0.01, 0.5), 6),
+            "significant": rng.random() > 0.5,
+            "alpha": payload.get("alpha", 0.05),
+            "eta_squared": round(rng.uniform(0.0, 0.2), 4),
+            "eta_squared_interp": "medium (0.06≤η²<0.14)",
+            "group_means": means,
+            "group_stds": {g: round(rng.uniform(0.01, 0.1), 4) for g in groups},
+            "group_ns": {g: 20 for g in groups},
+            "tukey_results": [
+                {
+                    "group1": groups[0], "group2": groups[1],
+                    "mean_diff": round(means[groups[0]] - means[groups[1]], 4),
+                    "q_statistic": round(rng.uniform(1, 4), 4),
+                    "p_value_approx": round(rng.uniform(0.05, 0.5), 6),
+                    "significant": False,
+                }
+            ],
+            "metric_used": metric,
+        }
+
+    return {
+        "status": "success",
+        "verification1_reward": _oneways(["R1_LOGRET", "R2_SHARPE", "R3_FULL"]),
+        "verification2_strategy": _oneways(["DRL", "MVO", "EqualWeight"], "fold_cagr"),
+        "verification3_regime": {
+            "strategy_effect": {"f_statistic": 2.1, "p_value": 0.13, "significant": False, "eta_sq_partial": 0.08},
+            "regime_effect": {"f_statistic": 5.4, "p_value": 0.02, "significant": True, "eta_sq_partial": 0.18},
+            "interaction_effect": {"f_statistic": 0.9, "p_value": 0.47, "significant": False, "eta_sq_partial": 0.03},
+            "strategy_means": {"DRL": 0.10, "MVO": 0.08, "EqualWeight": 0.06},
+            "regime_means": {"Bull": 0.18, "Sideways": 0.04, "Bear": -0.06},
+            "regime_counts": {"Bull": 4, "Sideways": 3, "Bear": 3},
+            "cell_means": {},
+            "cell_ns": {},
+            "anova_table": [],
+            "alpha": 0.05,
+            "metric_used": "fold_cagr",
+            "n_obs": 30,
+        },
+    }
 
 
 def explain(tickers: list[str], target_asset: str, token: str | None = None) -> dict:

@@ -51,6 +51,7 @@ TIMEOUT_OPTIMIZE = 45.0
 TIMEOUT_SHAP = 45.0
 TIMEOUT_RESEARCH = 180.0
 TIMEOUT_BACKTEST = 90.0
+TIMEOUT_ANOVA = 150.0
 
 # ─── 전역 상태 ─────────────────────────────────────────────────────────────────
 _ppo_model: Any = None       # stable_baselines3.PPO
@@ -459,6 +460,14 @@ class BacktestRequest(BaseModel):
     strategy: str = Field("drl", pattern="^(drl|mvo|equal_weight)$")
     start_date: str
     end_date: str
+
+
+class ANOVARequest(BaseModel):
+    tickers: list[str] = Field(..., min_length=1)
+    start_date: str
+    end_date: str
+    alpha: float = Field(0.05, gt=0, lt=1)
+    n_episodes_reward: int = Field(20, ge=5, le=50)
 
 
 # ─── GET /health ───────────────────────────────────────────────────────────────
@@ -965,3 +974,157 @@ async def backtest(req: BacktestRequest):
         return _error(504, "백테스트 처리 시간 초과", f"{TIMEOUT_BACKTEST}초 이내에 완료하지 못했습니다.")
 
     return {"status": "success", **result}
+
+
+# ─── POST /ai/anova ───────────────────────────────────────────────────────────
+def _sanitize_json(obj: Any) -> Any:
+    """float nan/inf → None 변환 (JSON 직렬화 호환)."""
+    if isinstance(obj, float):
+        return None if (obj != obj or obj == float("inf") or obj == float("-inf")) else obj
+    if isinstance(obj, dict):
+        return {k: _sanitize_json(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_sanitize_json(v) for v in obj]
+    return obj
+
+
+def _eta_squared_interp(eta_sq: float) -> str:
+    if eta_sq < 0.01:
+        return "small (η²<0.01)"
+    if eta_sq < 0.06:
+        return "small~medium (0.01≤η²<0.06)"
+    if eta_sq < 0.14:
+        return "medium (0.06≤η²<0.14)"
+    return "large (η²≥0.14)"
+
+
+def _run_reward_variant_anova(prices: pd.DataFrame, alpha: float, n_episodes: int) -> dict:
+    """검증 1 — 보상 함수 변형 3종 One-way ANOVA."""
+    from dataclasses import asdict
+    from ..research.anova_analysis import collect_episode_rewards, run_anova
+
+    variant_names = ["R1_LOGRET", "R2_SHARPE", "R3_FULL"]
+    prices_recent = prices.iloc[-252:] if len(prices) > 252 else prices
+
+    rewards = collect_episode_rewards(prices_recent, variant_names, n_episodes=n_episodes)
+    result = run_anova(rewards, alpha=alpha)
+
+    all_data = [np.array(rewards[g]) for g in variant_names]
+    all_vals = np.concatenate(all_data)
+    grand_mean = float(np.mean(all_vals))
+    ss_between = float(sum(len(d) * (float(np.mean(d)) - grand_mean) ** 2 for d in all_data))
+    ss_total = float(np.sum((all_vals - grand_mean) ** 2))
+    eta_sq = round(ss_between / ss_total if ss_total > 1e-12 else 0.0, 4)
+
+    result_dict = asdict(result)
+    result_dict["eta_squared"] = eta_sq
+    result_dict["eta_squared_interp"] = _eta_squared_interp(eta_sq)
+    return _sanitize_json(result_dict)
+
+
+def _collect_strategy_fold_records(
+    prices: pd.DataFrame,
+    alpha: float,
+) -> tuple[dict, list]:
+    """검증 2·3용 — 폴드별 DRL/MVO/EW CAGR + 시장 국면 레코드 수집."""
+    from ..backtest.mvo import MVO, MVOConfig, _build_fold_dates
+    from ..backtest.walk_forward import WalkForwardConfig
+    from ..research.strategy_anova import _equal_weight_cagr_with_cost, _fixed_weight_cagr_with_cost
+    from ..research.market_regime_anova import classify_fold_regime
+
+    drl_cache = _load_json(RESULTS_DIR / "walk_forward_result.json", {})
+    drl_folds = drl_cache.get("folds", [])
+    drl_by_month = {f["test_start"][:7]: _safe_float(f.get("cagr", 0.0)) for f in drl_folds}
+
+    cfg = WalkForwardConfig(train_months=24, test_months=6, step_months=6)
+    folds_dates = _build_fold_dates(prices, cfg)
+
+    strategy_returns: dict[str, list[float]] = {"DRL": [], "MVO": [], "EqualWeight": []}
+    fold_records: list[dict] = []
+
+    for fold_idx, (train_start, train_end, test_start, test_end) in enumerate(folds_dates):
+        train_prices = prices[(prices.index >= train_start) & (prices.index <= train_end)]
+        test_prices = prices[(prices.index >= test_start) & (prices.index <= test_end)]
+
+        if len(test_prices) < 5:
+            continue
+
+        ew_cagr = _equal_weight_cagr_with_cost(test_prices, 0.00015, 0.0005)
+
+        mvo_cagr = ew_cagr
+        if len(train_prices) >= 60:
+            try:
+                mvo = MVO(MVOConfig(target="max_sharpe", risk_free_rate=0.02))
+                mvo.fit(train_prices)
+                mvo_cagr = _fixed_weight_cagr_with_cost(
+                    test_prices, mvo.get_weights(), 0.00015, 0.0005
+                )
+            except Exception:
+                pass
+
+        test_start_str = str(test_start)[:7] if not isinstance(test_start, str) else test_start[:7]
+        drl_cagr = drl_by_month.get(test_start_str, ew_cagr)
+
+        regime = classify_fold_regime(test_prices)
+
+        strategy_returns["DRL"].append(drl_cagr)
+        strategy_returns["MVO"].append(mvo_cagr)
+        strategy_returns["EqualWeight"].append(ew_cagr)
+
+        for strategy, cagr in [("DRL", drl_cagr), ("MVO", mvo_cagr), ("EqualWeight", ew_cagr)]:
+            fold_records.append({
+                "strategy": strategy,
+                "regime": regime.value,
+                "cagr": cagr,
+                "fold": fold_idx,
+            })
+
+    return strategy_returns, fold_records
+
+
+@app.post("/ai/anova")
+async def run_anova_analysis(req: ANOVARequest):
+    def _compute():
+        from dataclasses import asdict
+        from ..research.strategy_anova import run_strategy_anova
+        from ..research.market_regime_anova import run_twoway_anova
+
+        prices = _get_or_fetch_prices(req.tickers, req.start_date, req.end_date)
+        if prices.empty or len(prices) < 60:
+            raise ValueError(f"데이터 부족: {len(prices)}행 (최소 60 거래일 필요)")
+
+        v1 = _run_reward_variant_anova(prices, req.alpha, req.n_episodes_reward)
+
+        strategy_returns, fold_records = _collect_strategy_fold_records(prices, req.alpha)
+
+        if all(len(v) == 0 for v in strategy_returns.values()):
+            raise ValueError("유효한 폴드 데이터가 없습니다.")
+
+        v2_result = run_strategy_anova(strategy_returns, alpha=req.alpha, metric_name="fold_cagr")
+        v2 = _sanitize_json(asdict(v2_result))
+
+        v3 = {"error": "폴드 수 부족으로 Two-way ANOVA 불가"}
+        if len(fold_records) >= 6:
+            try:
+                v3_result = run_twoway_anova(fold_records, alpha=req.alpha, metric_name="fold_cagr")
+                v3 = _sanitize_json(asdict(v3_result))
+            except Exception as exc:
+                logger.warning("Two-way ANOVA 실패: %s", exc)
+                v3 = {"error": str(exc)}
+
+        return {
+            "status": "success",
+            "verification1_reward": v1,
+            "verification2_strategy": v2,
+            "verification3_regime": v3,
+        }
+
+    try:
+        result = await _run(_compute, timeout=TIMEOUT_ANOVA)
+    except Exception as exc:
+        return _error(400, "ANOVA 분석 실패", str(exc))
+
+    if result is None:
+        return _error(504, "ANOVA 처리 시간 초과", f"{TIMEOUT_ANOVA}초 이내에 완료하지 못했습니다.")
+
+    return result
