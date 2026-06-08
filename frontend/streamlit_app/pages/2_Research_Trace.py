@@ -90,7 +90,7 @@ def _filter_portfolio_section(summary: str) -> str:
     chunks = rest.split("\n\n", 1)
     portfolio_lines = chunks[0].strip().split("\n")
     after = "\n\n" + chunks[1] if len(chunks) > 1 else ""
-    weight_lines = [l for l in portfolio_lines if l.startswith("추천 비중:")]
+    weight_lines = [l.removeprefix("추천 비중:").strip() for l in portfolio_lines if l.startswith("추천 비중:")]
     filtered_block = (header + "\n" + "\n".join(weight_lines)) if weight_lines else ""
     return before + filtered_block + after
 

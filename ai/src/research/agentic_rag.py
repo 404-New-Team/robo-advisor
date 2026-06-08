@@ -993,11 +993,28 @@ class AgenticRAGResearchAgent:
                 targets.append(label)
         return targets
 
+    @staticmethod
+    def _snippet_evidence(c: "Citation") -> str:
+        """snippet에서 가장 정보량 있는 첫 문장(최대 120자) 반환."""
+        raw = re.sub(r"\s+", " ", c.snippet or "").strip()
+        if not raw:
+            return ""
+        sentences = re.split(r"(?<=[.!?])\s+", raw)
+        for s in sentences:
+            s = s.strip()
+            if len(s) > 20:
+                return s[:120]
+        return raw[:120]
+
     def _summarize_citations_in_korean(self, citations: list[Citation]) -> list[tuple[str, str]]:
-        """각 Citation에 대해 (리스크 설명, 핵심 근거 문장) 튜플 반환.
-        실패 시 (제목, '') 반환."""
+        """각 Citation에 대해 (리스크 설명, 핵심 근거 문장) 튜플 반환."""
         if not citations:
             return []
+
+        if not os.environ.get("ANTHROPIC_API_KEY"):
+            logger.warning("ANTHROPIC_API_KEY 미설정 — extractive fallback 사용")
+            return [(c.title or "", self._snippet_evidence(c)) for c in citations]
+
         try:
             import anthropic
             entries = "\n\n".join(
@@ -1015,12 +1032,11 @@ class AgenticRAGResearchAgent:
                 messages=[{
                     "role": "user",
                     "content": (
-                        "다음 각 뉴스 기사에 대해 정확히 두 줄씩 출력하세요.\n"
-                        "첫 번째 줄: '숫자. 설명' 형식 — 해당 종목에 구체적으로 어떤 리스크(가격·수익·규제 등)를 "
-                        "야기하는지 인과관계 중심으로 한국어 한 문장.\n"
-                        "두 번째 줄: '숫자근거. 핵심문장' 형식 — 본문에서 그 판단의 직접적 근거가 된 원문 한 줄 "
-                        "(본문을 그대로 인용하거나 최소한으로 다듬어 한 문장으로).\n"
-                        "다른 텍스트는 절대 쓰지 마세요.\n\n"
+                        "다음 각 뉴스 기사에 대해 번호순으로 두 줄씩 출력하세요.\n"
+                        "첫 줄 형식: '번호. 한국어설명' — 해당 종목에 어떤 리스크를 야기하는지 인과관계 중심 한 문장.\n"
+                        "둘째 줄 형식: '번호근거. 원문인용' — 본문에서 그 판단의 직접 근거가 된 문장 원문.\n"
+                        "예시:\n1. ADP의 수익성 악화 리스크가 예상된다.\n1근거. Analyst lowered EPS estimate by 12%.\n"
+                        "다른 텍스트 없이 위 형식만 출력하세요.\n\n"
                         f"{entries}"
                     ),
                 }],
@@ -1030,23 +1046,25 @@ class AgenticRAGResearchAgent:
             evidences: dict[int, str] = {}
             for line in text.strip().splitlines():
                 line = line.strip()
-                m = re.match(r"^(\d+)근거[.)]\s+(.+)", line)
+                if not line:
+                    continue
+                m = re.match(r"^(\d+)\s*근거\s*[.)]\s*(.+)", line)
                 if m:
                     evidences[int(m.group(1))] = m.group(2).strip()
                     continue
-                m = re.match(r"^(\d+)[.)]\s+(.+)", line)
+                m = re.match(r"^(\d+)\s*[.)]\s*(.+)", line)
                 if m:
                     summaries[int(m.group(1))] = m.group(2).strip()
             return [
                 (
-                    summaries.get(i, c.title or ""),
-                    evidences.get(i, ""),
+                    summaries.get(i) or c.title or "",
+                    evidences.get(i) or self._snippet_evidence(c),
                 )
                 for i, c in enumerate(citations, 1)
             ]
-        except Exception:
-            pass
-        return [(c.title or (c.snippet or "")[:80] or "", "") for c in citations]
+        except Exception as exc:
+            logger.warning("_summarize_citations_in_korean LLM 호출 실패: %s — extractive fallback 사용", exc)
+        return [(c.title or "", self._snippet_evidence(c)) for c in citations]
 
     def _format_document_portfolio_links(self, citations: list[Citation]) -> list[str]:
         pairs = self._summarize_citations_in_korean(citations)
