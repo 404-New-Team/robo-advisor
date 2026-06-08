@@ -950,7 +950,7 @@ async def backtest(req: BacktestRequest):
 
         # 캐시 없으면 Walk-Forward 실행 (타임아웃 위험 주의)
         cfg = WalkForwardConfig(train_months=24, test_months=6, step_months=6, train_timesteps=50_000)
-        wf = WalkForwardBacktest(prices=prices, config=cfg)
+        wf = WalkForwardBacktest(prices=prices, config=cfg, risk_state=_global_risk_state)
         result = wf.run(verbose=False)
         cache = _wf_result_to_cache(result)
         _save_json(cache_path, cache)

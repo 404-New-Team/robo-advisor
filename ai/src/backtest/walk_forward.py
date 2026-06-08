@@ -129,9 +129,11 @@ class WalkForwardResult:
 class WalkForwardBacktest:
     """슬라이딩 윈도우 Walk-Forward 백테스트."""
 
-    def __init__(self, prices: pd.DataFrame, config: WalkForwardConfig = None):
+    def __init__(self, prices: pd.DataFrame, config: WalkForwardConfig = None,
+                 risk_state: Optional[RiskState] = None):
         self.prices = prices
         self.cfg = config or WalkForwardConfig()
+        self.risk_state = risk_state
 
     # ------------------------------------------------------------------
 
@@ -256,9 +258,11 @@ class WalkForwardBacktest:
         )
 
     def _make_env(self, prices: pd.DataFrame) -> PortfolioEnv:
+        import copy
+        risk = copy.deepcopy(self.risk_state) if self.risk_state is not None else RiskState()
         return PortfolioEnv(
             prices=prices,
-            risk_state=RiskState(),
+            risk_state=risk,
             window_size=self.cfg.window_size,
             transaction_cost=self.cfg.transaction_cost,
             slippage=self.cfg.slippage,
