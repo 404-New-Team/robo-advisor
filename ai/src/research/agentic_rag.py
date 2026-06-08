@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import logging
 import os
 import re
 from dataclasses import asdict, dataclass, field
 from typing import TYPE_CHECKING, Any, Callable, Optional, TypedDict
+
+logger = logging.getLogger(__name__)
 
 from ..envs.risk_state import RiskTag
 from .risk_detector import RiskDetector

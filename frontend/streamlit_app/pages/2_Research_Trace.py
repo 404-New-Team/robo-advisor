@@ -77,11 +77,6 @@ if submitted:
     st.session_state["research_trace_result"] = result
     st.toast("백엔드 리서치 결과를 갱신했습니다.")
 
-result = st.session_state.get("research_trace_result")
-if result is None:
-    st.info("리서치 실행 버튼을 눌러 현재 포트폴리오 기준 분석을 시작하세요.")
-    st.stop()
-
 def _filter_portfolio_section(summary: str) -> str:
     header = "포트폴리오 구성/비중 기준:"
     if header not in summary:
@@ -94,6 +89,11 @@ def _filter_portfolio_section(summary: str) -> str:
     filtered_block = (header + "\n" + "\n".join(weight_lines)) if weight_lines else ""
     return before + filtered_block + after
 
+
+result = st.session_state.get("research_trace_result")
+if result is None:
+    st.info("리서치 실행 버튼을 눌러 현재 포트폴리오 기준 분석을 시작하세요.")
+    st.stop()
 
 st.subheader("요약")
 st.write(_filter_portfolio_section(result["summary"]))
