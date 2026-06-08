@@ -9,7 +9,7 @@
 # 2-5-5. lambda = 5.0
 
 IMAGE="robo-advisor-ai:latest"
-START="2016-01-01"
+START="2017-01-01"
 END="2025-12-31"
 TIMESTEPS=150000
 N_ENVS=4

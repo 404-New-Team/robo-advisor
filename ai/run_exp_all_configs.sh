@@ -1,9 +1,9 @@
 #!/bin/bash
 # Walk-Forward 실험 - 6가지 train/test 설정을 순차 실행
-# 기간: 2016~2025 (10년치)  |  timesteps: 150,000  |  n_envs: 4
+# 기간: 2017~2025  |  timesteps: 150,000  |  n_envs: 4
 
 IMAGE="robo-advisor-ai:latest"
-START="2016-01-01"
+START="2017-01-01"
 END="2025-12-31"
 TIMESTEPS=150000
 N_ENVS=4
