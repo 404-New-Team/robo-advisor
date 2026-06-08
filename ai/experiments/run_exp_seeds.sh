@@ -26,7 +26,7 @@ TRAIN_MONTHS=24
 TEST_MONTHS=6
 STEP_MONTHS=6
 N_ENVS=4
-TIMESTEPS=150000   # 실험 2-2 완료 후 최적 스텝으로 교체 권장
+TIMESTEPS=225000
 
 SEEDS_LIST=(1 3 5)
 
@@ -94,6 +94,7 @@ for N_SEEDS in "${SEEDS_LIST[@]}"; do
 done
 
 echo "====================================================="
-echo "  모든 실험 완료. 비교 분석 실행:"
-echo "  python experiments/compare_exp_seeds.py --timesteps $TIMESTEPS"
+echo "  모든 실험 완료. 비교 분석 실행 중..."
 echo "====================================================="
+
+$DOCKER_RUN python experiments/compare_exp_seeds.py --timesteps $TIMESTEPS

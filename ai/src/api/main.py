@@ -517,7 +517,9 @@ async def optimize(req: OptimizeRequest):
             if req_set.issubset(train_set):
                 # 요청 티커가 학습 티커 범위 내 → 학습 티커 전체로 env 빌드 후 부분 추출
                 try:
-                    train_prices = _get_or_fetch_prices(_ppo_tickers, req.start_date, req.end_date)
+                    # 추론은 최근 90일치만 사용 (지표 warm-up 충분)
+                    _infer_start = (pd.Timestamp(req.end_date) - pd.DateOffset(days=90)).strftime("%Y-%m-%d")
+                    train_prices = _get_or_fetch_prices(_ppo_tickers, _infer_start, req.end_date)
                     if not train_prices.empty and len(train_prices) >= 30:
                         train_window = min(20, len(train_prices) // 3)
                         env = PortfolioEnv(
@@ -525,8 +527,16 @@ async def optimize(req: OptimizeRequest):
                             risk_state=_global_risk_state or RiskState(),
                             window_size=train_window,
                         )
+                        # 가장 최근 날짜의 관측값으로 예측
                         obs, _ = env.reset()
-                        action, _ = _ppo_model.predict(obs, deterministic=True)
+                        latest_obs = obs.copy()
+                        done = False
+                        while not done:
+                            latest_obs = obs.copy()
+                            dummy = np.zeros(env.action_space.shape[0], dtype=np.float32)
+                            obs, _, terminated, truncated, _ = env.step(dummy)
+                            done = terminated or truncated
+                        action, _ = _ppo_model.predict(latest_obs, deterministic=True)
                         all_weights = env._softmax(action)
                         # 요청 티커에 해당하는 인덱스만 추출 → 재정규화
                         idx = [_ppo_tickers.index(t) for t in tickers]

@@ -27,7 +27,7 @@ STEP_MONTHS=6
 N_SEEDS=1
 N_ENVS=4
 
-TIMESTEPS=(30000 150000 200000 300000 500000)
+TIMESTEPS=(30000 150000 200000 225000 300000 500000)
 
 # --skip 인자 파싱
 SKIP=()
@@ -92,6 +92,7 @@ for TS in "${TIMESTEPS[@]}"; do
 done
 
 echo "====================================================="
-echo "  모든 실험 완료. 비교 분석 실행:"
-echo "  python experiments/compare_exp_timesteps.py"
+echo "  모든 실험 완료. 비교 분석 실행 중..."
 echo "====================================================="
+
+$DOCKER_RUN python experiments/compare_exp_timesteps.py
