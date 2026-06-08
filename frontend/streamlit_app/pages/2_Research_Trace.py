@@ -96,7 +96,7 @@ if result is None:
     st.stop()
 
 st.subheader("요약")
-st.write(_filter_portfolio_section(result["summary"]))
+st.write(_filter_portfolio_section(result["summary"]).replace("$", r"\$"))
 
 left, right = st.columns([1, 1])
 with left:

@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from dotenv import load_dotenv
-load_dotenv()  # 로컬 실행 시 .env 파일에서 환경변수 로드
+load_dotenv(Path(__file__).resolve().parents[3] / ".env")
 
 import matplotlib
 matplotlib.use("Agg")  # 서버 환경: 헤드리스 렌더링
