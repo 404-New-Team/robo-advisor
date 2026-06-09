@@ -259,6 +259,7 @@ _RISK_LEVEL_MVO: dict = {
 
 def _build_mvo_config(n_assets: int, risk_level: str) -> "MVOConfig":
     """risk_level에 맞는 MVOConfig 반환. weight_min/max + 최적화 목표 함께 설정."""
+    from ..backtest.mvo import MVOConfig
     c = _RISK_LEVEL_MVO.get(risk_level, _RISK_LEVEL_MVO["moderate"])
     wmin = min(c["weight_min"], 0.9 / max(n_assets, 1))
     return MVOConfig(target=c["target"], weight_min=wmin, weight_max=c["weight_max"])
