@@ -43,7 +43,7 @@ IDX=1
 
 for LAMBDA in "${LAMBDAS[@]}"; do
   LAMBDA_STR="${LAMBDA/./p}"
-  FNAME="walk_forward_tm${TRAIN_MONTHS}_tt${TEST_MONTHS}_ts${TIMESTEPS}_l${LAMBDA_STR}_s${N_SEEDS}.json"
+  FNAME="walk_forward_tm${TRAIN_MONTHS}_tt${TEST_MONTHS}_ts${TIMESTEPS}_s${N_SEEDS}_l${LAMBDA_STR}.json"
 
   echo ""
   echo "[$IDX/$TOTAL] lambda=${LAMBDA}  →  $FNAME"
@@ -73,12 +73,13 @@ echo "======================================================"
 echo "  전체 완료. Lambda 실험 결과 비교:"
 echo "======================================================"
 
-$DOCKER_RUN python - <<'PYEOF'
-import json, os
+$DOCKER_RUN python - <<PYEOF
+import json
 from pathlib import Path
 
 result_dir = Path("/app/experiments/results")
 lambdas = [0.5, 1.0, 2.0, 3.0, 5.0]
+tm, tt, ts, ns = ${TRAIN_MONTHS}, ${TEST_MONTHS}, ${TIMESTEPS}, ${N_SEEDS}
 
 print()
 print(f"  {'Lambda':>8} │ {'CAGR':>9} {'±std':>8} {'Sharpe':>8} {'MDD':>8} {'폴드':>5}")
@@ -86,7 +87,7 @@ print(f"  {'-'*8}-+-{'-'*9}-{'-'*8}-{'-'*8}-{'-'*8}-{'-'*5}")
 
 for lam in lambdas:
     lstr = str(lam).replace(".", "p")
-    fname = f"walk_forward_tm24_tt6_ts150000_l{lstr}_s1.json"
+    fname = f"walk_forward_tm{tm}_tt{tt}_ts{ts}_s{ns}_l{lstr}.json"
     fpath = result_dir / fname
     if not fpath.exists():
         print(f"  {lam:>8} │  (결과 없음)")

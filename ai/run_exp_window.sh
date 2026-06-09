@@ -1,10 +1,10 @@
 #!/bin/bash
 # 관측 윈도우 크기 N 탐색 실험
 #
-# 2-6-1. N = 20
-# 2-6-2. N = 30
-# 2-6-3. N = 40
-# 2-6-4. N = 60
+# 2-6-1. N = 10
+# 2-6-2. N = 20
+# 2-6-3. N = 30
+# 2-6-4. N = 40
 
 IMAGE="robo-advisor-ai:latest"
 START="2017-01-01"
@@ -28,7 +28,8 @@ DOCKER_RUN="docker run --rm \
   -e ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-} \
   $IMAGE"
 
-WINDOWS=(20 30 40 60)
+WINDOWS=(10 20 30 40)
+DEFAULT_WINDOW=20
 
 echo "======================================================"
 echo "  관측 윈도우 N 탐색 실험 (${#WINDOWS[@]}가지)"
@@ -40,10 +41,13 @@ echo "======================================================"
 TOTAL=${#WINDOWS[@]}
 IDX=1
 
-LAMBDA_STR="${LAMBDA/./p}"
-
 for N in "${WINDOWS[@]}"; do
-  FNAME="walk_forward_tm${TRAIN_MONTHS}_tt${TEST_MONTHS}_ts${TIMESTEPS}_l${LAMBDA_STR}_n${N}_s${N_SEEDS}.json"
+  # 기본값(20)이면 _w 태그 없음, 비기본값이면 _w{N} 태그 추가
+  if [ "$N" -eq "$DEFAULT_WINDOW" ]; then
+    FNAME="walk_forward_tm${TRAIN_MONTHS}_tt${TEST_MONTHS}_ts${TIMESTEPS}_s${N_SEEDS}.json"
+  else
+    FNAME="walk_forward_tm${TRAIN_MONTHS}_tt${TEST_MONTHS}_ts${TIMESTEPS}_s${N_SEEDS}_w${N}.json"
+  fi
 
   echo ""
   echo "[$IDX/$TOTAL] window_size=${N}  →  $FNAME"
@@ -79,16 +83,22 @@ import json
 from pathlib import Path
 
 result_dir = Path("/app/experiments/results")
-windows = [20, 30, 40, 60]
-lambda_str = "${LAMBDA_STR}"
+windows     = [10, 20, 30, 40]
+default_n   = 20
+tm, tt, ts, ns = ${TRAIN_MONTHS}, ${TEST_MONTHS}, ${TIMESTEPS}, ${N_SEEDS}
+
+def fname(n):
+    base = f"walk_forward_tm{tm}_tt{tt}_ts{ts}_s{ns}"
+    if n != default_n:
+        base += f"_w{n}"
+    return base + ".json"
 
 print()
 print(f"  {'N':>6} │ {'CAGR':>9} {'±std':>8} {'Sharpe':>8} {'MDD':>8} {'폴드':>5}")
 print(f"  {'-'*6}-+-{'-'*9}-{'-'*8}-{'-'*8}-{'-'*8}-{'-'*5}")
 
 for n in windows:
-    fname = f"walk_forward_tm${TRAIN_MONTHS}_tt${TEST_MONTHS}_ts${TIMESTEPS}_l{lambda_str}_n{n}_s${N_SEEDS}.json"
-    fpath = result_dir / fname
+    fpath = result_dir / fname(n)
     if not fpath.exists():
         print(f"  {n:>6} │  (결과 없음)")
         continue
