@@ -222,7 +222,7 @@ def walk_forward_performance_frame(results: list[dict]) -> pd.DataFrame:
         return pd.DataFrame()
 
     series: dict[str, list[float]] = {}
-    x_labels: list[str] = ["시작"]
+    x_labels: list[str] = []
 
     for idx, result in enumerate(results):
         strategy = result.get("strategy", "strategy")
@@ -235,6 +235,8 @@ def walk_forward_performance_frame(results: list[dict]) -> pd.DataFrame:
             values.append(round(cumulative, 4))
             if idx == 0:
                 period = item.get("period", "")
+                if "~" in period and not x_labels:
+                    x_labels.append(period.split("~")[0][:7])
                 x_labels.append(period.split("~")[1][:7] if "~" in period else period)
         series[label] = values
 

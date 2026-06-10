@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from datetime import date
 from typing import Any
 
 try:
@@ -114,14 +115,26 @@ def delete_user_ticker(token: str, ticker: str) -> dict:
     return _request("DELETE", f"/users/tickers/{ticker}", token=token)
 
 
-def optimize_portfolio(risk_level: str, tickers: list[str], excluded: list[str] | None = None, token: str | None = None) -> dict:
+def optimize_portfolio(
+    risk_level: str,
+    tickers: list[str],
+    excluded: list[str] | None = None,
+    token: str | None = None,
+    start_date: str = "2017-01-01",
+    end_date: str | None = None,
+) -> dict:
     if USE_MOCK:
         from mock_data import get_optimize_response
 
         return get_optimize_response(risk_level=risk_level, tickers=tickers, excluded=excluded)
     excluded_set = set(excluded or [])
     filtered_tickers = [ticker for ticker in tickers if ticker not in excluded_set] or tickers
-    payload = {"risk_level": risk_level, "tickers": filtered_tickers}
+    payload = {
+        "risk_level": risk_level,
+        "tickers": filtered_tickers,
+        "start_date": start_date,
+        "end_date": end_date or str(date.today()),
+    }
     return _request("POST", "/optimize", token=token, json=payload)
 
 
@@ -154,8 +167,6 @@ def anova(
     n_episodes_reward: int = 20,
     token: str | None = None,
 ) -> dict:
-    from datetime import date
-
     payload: dict = {
         "tickers": [t for t in tickers if t],
         "alpha": alpha,

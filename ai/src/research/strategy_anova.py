@@ -37,6 +37,7 @@ class StrategyANOVAResult:
     p_value: float
     significant: bool
     alpha: float
+    test_method: str            # "one-way-anova"
     # ── 효과 크기 ────────────────────────────────────────────────
     eta_squared: float          # η² = SS_between / SS_total
     eta_squared_interp: str     # "small" / "medium" / "large"
@@ -304,6 +305,7 @@ def run_strategy_anova(
         p_value=round(float(p_val), 6),
         significant=bool(p_val < alpha),
         alpha=alpha,
+        test_method="one-way-anova",
         eta_squared=round(eta_sq, 4),
         eta_squared_interp=eta_interp,
         group_means=group_means,

@@ -8,7 +8,7 @@ import logging
 import traceback
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
@@ -442,8 +442,8 @@ def _build_feature_names(tickers: list[str]) -> list[str]:
 class OptimizeRequest(BaseModel):
     tickers: list[str] = Field(..., min_length=1)
     risk_level: str = Field("moderate", pattern="^(low|moderate|high)$")
-    start_date: str
-    end_date: str
+    start_date: str = "2017-01-01"
+    end_date: str = Field(default_factory=lambda: str(date.today()))
 
 
 class ShapRequest(BaseModel):
@@ -1143,7 +1143,7 @@ async def run_anova_analysis(req: ANOVARequest):
 
         v2_result = run_strategy_anova(strategy_returns, alpha=req.alpha, metric_name="fold_cagr")
         v2 = _sanitize_json(asdict(v2_result))
-        # run_strategy_anova도 내부에서 round(p, 6) 처리 → full-precision 복원
+        # run_strategy_anova 내부 round(p, 6) → full-precision 복원
         if strategy_returns and all(strategy_returns.values()):
             _, p_v2_full = f_oneway(*[np.array(v) for v in strategy_returns.values()])
             v2["p_value"] = float(p_v2_full)

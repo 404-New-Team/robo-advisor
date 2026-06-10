@@ -40,8 +40,8 @@ class MarketRegime(str, enum.Enum):
 
 def classify_fold_regime(
     test_prices: pd.DataFrame,
-    threshold_bull: float = 0.10,
-    threshold_bear: float = -0.10,
+    threshold_bull: float = 0.05,
+    threshold_bear: float = -0.05,
 ) -> MarketRegime:
     """
     테스트 기간 동일가중 CAGR로 시장 국면 분류.
