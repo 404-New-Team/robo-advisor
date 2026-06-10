@@ -923,14 +923,15 @@ async def backtest(req: BacktestRequest):
 
         # ── equal_weight ────────────────────────────────────────────────────
         if req.strategy == "equal_weight":
-            ew_cached = _load_json(RESULTS_DIR / "ew_walk_forward_result.json", {})
-            if ew_cached and ew_cached.get("folds"):
-                return _build_wf_response("equal_weight", ew_cached, kospi_ret, sp500_ret)
-
             from ..backtest.mvo import _build_fold_dates
             weights = np.ones(n) / n
             cfg = WalkForwardConfig(train_months=24, test_months=6, step_months=6)
             folds_dates = _build_fold_dates(prices, cfg)
+            expected_n_folds = len(folds_dates)
+
+            ew_cached = _load_json(RESULTS_DIR / "ew_walk_forward_result.json", {})
+            if ew_cached and len(ew_cached.get("folds", [])) == expected_n_folds:
+                return _build_wf_response("equal_weight", ew_cached, kospi_ret, sp500_ret)
             fold_data: list[dict] = []
             fold_metrics_list = []
             for _, (_, _, test_start, test_end) in enumerate(folds_dates):
@@ -974,8 +975,11 @@ async def backtest(req: BacktestRequest):
 
         # ── mvo ─────────────────────────────────────────────────────────────
         if req.strategy == "mvo":
+            from ..backtest.mvo import _build_fold_dates as _bfd_mvo
+            _cfg_mvo = WalkForwardConfig(train_months=24, test_months=6, step_months=6)
+            _expected_mvo = len(_bfd_mvo(prices, _cfg_mvo))
             mvo_cached = _load_json(RESULTS_DIR / "mvo_walk_forward_result.json", {})
-            if mvo_cached and mvo_cached.get("folds"):
+            if mvo_cached and len(mvo_cached.get("folds", [])) == _expected_mvo:
                 return _build_wf_response("mvo", mvo_cached, kospi_ret, sp500_ret)
 
             cfg = WalkForwardConfig(train_months=24, test_months=6, step_months=6, train_timesteps=10_000)
