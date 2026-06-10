@@ -30,6 +30,15 @@ TIMESTEPS=225000
 
 SEEDS_LIST=(1 3 5)
 
+# n_seeds별 고정 시드 값
+# n_seeds=1: [3]
+# n_seeds=3: [3 41 25]
+# n_seeds=5: [3 41 25 73 16]
+declare -A SEEDS_MAP
+SEEDS_MAP[1]="3"
+SEEDS_MAP[3]="3 41 25"
+SEEDS_MAP[5]="3 41 25 73 16"
+
 # 인자 파싱
 SKIP=()
 while [[ $# -gt 0 ]]; do
@@ -50,6 +59,7 @@ echo "  실험 2-3: 멀티 시드 앙상블 실험"
 echo "  기간: $START ~ $END"
 echo "  train=${TRAIN_MONTHS}mo / test=${TEST_MONTHS}mo / step=${STEP_MONTHS}mo"
 echo "  timesteps=$TIMESTEPS / n_envs=$N_ENVS"
+echo "  시드: n=1:[3]  n=3:[3,41,25]  n=5:[3,41,25,73,16]"
 echo "====================================================="
 echo ""
 
@@ -74,7 +84,8 @@ for N_SEEDS in "${SEEDS_LIST[@]}"; do
         continue
     fi
 
-    echo "[$IDX/$TOTAL] n_seeds=$N_SEEDS 시작..."
+    SEED_VALS="${SEEDS_MAP[$N_SEEDS]}"
+    echo "[$IDX/$TOTAL] n_seeds=$N_SEEDS (seeds: $SEED_VALS) 시작..."
     START_TIME=$(date +%s)
 
     $DOCKER_RUN python experiments/walk_forward_experiment.py \
@@ -84,8 +95,8 @@ for N_SEEDS in "${SEEDS_LIST[@]}"; do
         --test_months   $TEST_MONTHS \
         --step_months   $STEP_MONTHS \
         --drl_timesteps $TIMESTEPS \
-        --n_seeds       $N_SEEDS \
-        --n_envs        $N_ENVS
+        --n_envs        $N_ENVS \
+        --seeds         $SEED_VALS
 
     END_TIME=$(date +%s)
     ELAPSED=$(( END_TIME - START_TIME ))

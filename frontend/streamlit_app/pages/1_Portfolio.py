@@ -8,7 +8,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from api_client import backtest, optimize_portfolio
 from reference_data import get_order_preview, get_weight_table
-from ui import allocation_chart, configure_page, format_money, load_api_data, performance_chart, render_metric_row, render_sidebar, walk_forward_performance_frame
+from ui import allocation_chart, configure_page, format_money, load_api_data, performance_chart, render_metric_row, render_sidebar, strategy_comparison_from_results, walk_forward_performance_frame
 
 
 configure_page("포트폴리오")
@@ -22,13 +22,17 @@ result = load_api_data(
     excluded=state["excluded_tickers"],
     token=state["access_token"],
 )
-backtest_result = load_api_data("백테스트", backtest, state["active_tickers"], "drl", token=state["access_token"])
+_BT_START, _BT_END = "2017-01-01", "2025-12-31"
+backtest_result = load_api_data(
+    "백테스트", backtest, state["active_tickers"], "drl",
+    token=state["access_token"], start_date=_BT_START, end_date=_BT_END,
+)
 backtest_results_all = [backtest_result]
 for _strategy in ("mvo", "equal_weight"):
     try:
         backtest_results_all.append(backtest(
-            state["active_tickers"], _strategy, token=state["access_token"],
-            start_date="2019-01-01", end_date="2026-07-01",
+            state["active_tickers"], _strategy,
+            token=state["access_token"], start_date=_BT_START, end_date=_BT_END,
         ))
     except Exception as _e:
         st.warning(f"{_strategy} 백테스트 실패: {_e}")
@@ -80,11 +84,26 @@ st.dataframe(
 )
 
 st.subheader("Walk-Forward 성과")
+st.caption(f"기간: {_BT_START} ~ {_BT_END}  |  train=24mo / test=6mo / step=6mo")
 st.plotly_chart(
     performance_chart(walk_forward_performance_frame(backtest_results_all)),
     use_container_width=True,
     key="portfolio_walk_forward_chart",
 )
+
+cmp_df = strategy_comparison_from_results(backtest_results_all)
+if not cmp_df.empty:
+    st.markdown("**전략별 성과 요약**")
+    st.dataframe(
+        cmp_df.style.format({
+            "누적수익률": "{:.1%}",
+            "Sharpe":    "{:.3f}",
+            "MDD":       "{:.1%}",
+            "승률":      "{:.1%}",
+        }),
+        use_container_width=True,
+        hide_index=True,
+    )
 
 comparison_df = pd.DataFrame(
     [

@@ -10,7 +10,7 @@ environment:
     - "069500"
     - "102110"
     - "233740"
-  window_size: 20
+  window_size: 30
   initial_balance: 1000000
   transaction_cost: 0.00015
   slippage: 0.0005
@@ -26,14 +26,14 @@ risk:
   decay_rate: 0.95
 
 reward:
-  risk_penalty_lambda: 0.1
+  risk_penalty_lambda: 0.5
   drawdown_penalty_mu: 0.3
 
 training:
-  total_timesteps: 500000
+  total_timesteps: 225000
   n_envs: 4
   batch_size: 256
-  learning_rate: 0.0003
+  learning_rate: 0.0001
 
 backtest:
   risk_free_rate: 0.02

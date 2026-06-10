@@ -16,7 +16,11 @@ configure_page("ANOVA 검증")
 state = render_sidebar()
 
 st.title("ANOVA 성과 검증")
-st.caption("검증 1 · 2 (One-way ANOVA) 및 검증 3 (Two-way ANOVA) 결과를 표시합니다.")
+st.caption(
+    "검증 1 · 2 (One-way ANOVA) 및 검증 3 (Two-way ANOVA) 결과를 표시합니다.  \n"
+    "**실험 기간**: 2017-01-01 ~ 2025-12-31  |  **폴드 구성**: train=24mo / test=6mo / step=6mo  |  "
+    "**최적 하이퍼파라미터**: lr=1e-4, λ=0.5, window=30, n_seeds=5"
+)
 
 # ─── 실행 패널 ────────────────────────────────────────────────────────────────
 with st.expander("실행 설정", expanded=False):
@@ -34,6 +38,8 @@ if run_btn:
         alpha=float(alpha),
         n_episodes_reward=int(n_ep),
         token=state["access_token"],
+        start_date="2017-01-01",
+        end_date="2025-12-31",
     )
     st.session_state["anova_result"] = result
     st.toast("ANOVA 검증이 완료됐습니다.")
@@ -109,6 +115,11 @@ def _render_oneways(data: dict, title: str, group_label: str) -> None:
 # ─── 검증 1 ────────────────────────────────────────────────────────────────────
 st.divider()
 with st.container():
+    st.info(
+        "**검증 1**: 보상 함수 변형(R1_LOGRET · R2_SHARPE · R3_FULL) 간 에피소드 보상 분포에 "
+        "통계적으로 유의미한 차이가 있는가?  \n"
+        "→ 유의하다면 보상 함수 설계가 에이전트 학습에 실질적 영향을 줌을 의미합니다."
+    )
     _render_oneways(
         result["verification1_reward"],
         "검증 1 — 보상 함수 변형별 성과 비교 (One-way ANOVA)",
@@ -118,6 +129,11 @@ with st.container():
 # ─── 검증 2 ────────────────────────────────────────────────────────────────────
 st.divider()
 with st.container():
+    st.info(
+        "**검증 2**: Walk-Forward 폴드 CAGR 기준으로 DRL · MVO · 동일가중 세 전략 간 "
+        "성과에 통계적으로 유의미한 차이가 있는가?  \n"
+        "→ 유의하다면 DRL이 단순 벤치마크 대비 의미 있는 성과 우위를 가짐을 의미합니다."
+    )
     _render_oneways(
         result["verification2_strategy"],
         "검증 2 — DRL vs MVO vs 동일가중 전략 비교 (One-way ANOVA)",
@@ -129,6 +145,11 @@ st.divider()
 v3 = result.get("verification3_regime", {})
 
 st.subheader("검증 3 — 시장 국면별 전략 성과 비교 (Two-way ANOVA)")
+st.info(
+    "**검증 3**: 전략(DRL/MVO/EW)과 시장 국면(Bull/Sideways/Bear)의 주효과 및 상호작용이 "
+    "폴드 CAGR에 유의미한 영향을 주는가?  \n"
+    "→ 상호작용 효과가 유의하다면 DRL이 특정 시장 국면에서 차별적 강점을 가짐을 의미합니다."
+)
 
 if "error" in v3:
     st.warning(f"검증 3 계산 실패: {v3['error']}")

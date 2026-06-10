@@ -1,0 +1,16 @@
+{
+  "seeds": [
+    3,
+    41,
+    25,
+    73,
+    16
+  ],
+  "primary_seed": 3,
+  "learning_rate": 0.0001,
+  "risk_penalty_lambda": 0.5,
+  "window_size": 30,
+  "timesteps": 225000,
+  "data_start": "2017-01-01",
+  "data_end": "2025-12-31"
+}

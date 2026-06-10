@@ -69,10 +69,12 @@ def main():
     parser.add_argument("--step_months",         type=int,   default=6,        help="슬라이딩 스텝(월)")
     parser.add_argument("--drl_timesteps",       type=int,   default=150_000,  help="폴드당 학습 스텝")
     parser.add_argument("--n_seeds",             type=int,   default=1,        help="앙상블 시드 수")
+    parser.add_argument("--seeds",               type=int,   nargs="+",        help="사용할 시드 값 목록 (지정 시 n_seeds 무시)")
     parser.add_argument("--n_envs",              type=int,   default=4,        help="병렬 환경 수 (VecEnv)")
     parser.add_argument("--learning_rate",       type=float, default=_DEFAULT_LR,     help="PPO learning rate (기본값 3e-4)")
     parser.add_argument("--risk_penalty_lambda", type=float, default=_DEFAULT_LAMBDA, help="리스크 패널티 람다 (기본값 0.1)")
     parser.add_argument("--window_size",         type=int,   default=None,     help="관측 윈도우 크기 N (미지정 시 settings.yaml 값 사용)")
+    parser.add_argument("--final",               action="store_true",          help="결과를 walk_forward_result.json (대시보드 연동용)으로도 저장")
     args = parser.parse_args()
 
     with open(CONFIG_PATH, encoding="utf-8") as f:
@@ -91,12 +93,14 @@ def main():
     default_window = env_cfg["window_size"]
     window_size = args.window_size if args.window_size is not None else default_window
 
+    seeds = args.seeds or []
     wf_cfg = WalkForwardConfig(
         train_months=args.train_months,
         test_months=args.test_months,
         step_months=args.step_months,
         train_timesteps=args.drl_timesteps,
-        n_seeds=args.n_seeds,
+        n_seeds=len(seeds) if seeds else args.n_seeds,
+        seeds=seeds,
         n_envs=args.n_envs,
         learning_rate=args.learning_rate,
         window_size=window_size,
@@ -160,6 +164,12 @@ def main():
         json.dump(out, f, ensure_ascii=False, indent=2, default=_numpy_default)
 
     print(f"\n결과 저장 완료: {save_path}")
+
+    if args.final:
+        result_path = RESULT_DIR / "walk_forward_result.json"
+        with open(result_path, "w", encoding="utf-8") as f:
+            json.dump(out, f, ensure_ascii=False, indent=2, default=_numpy_default)
+        print(f"대시보드 연동 파일 저장: {result_path}")
 
 
 if __name__ == "__main__":

@@ -56,6 +56,7 @@ TIMEOUT_ANOVA = 150.0
 # ─── 전역 상태 ─────────────────────────────────────────────────────────────────
 _ppo_model: Any = None       # stable_baselines3.PPO
 _ppo_tickers: list[str] = []  # PPO 학습 시 사용한 티커 순서 (settings.yaml 기준)
+_ppo_window_size: int = 30   # settings.yaml environment.window_size
 _research_agent: Any = None  # AgenticRAGResearchAgent
 _research_agent_error: str = ""
 _prices_cache: dict[str, pd.DataFrame] = {}
@@ -97,7 +98,7 @@ def _get_research_agent() -> Any:
 # ─── Lifespan: 서버 시작 시 모델 사전 로딩 ─────────────────────────────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global _ppo_model, _ppo_tickers, _global_risk_state
+    global _ppo_model, _ppo_tickers, _ppo_window_size, _global_risk_state
     from ..envs.risk_state import RiskState
     _global_risk_state = RiskState()
 
@@ -108,7 +109,8 @@ async def lifespan(app: FastAPI):
         with open(settings_path, encoding="utf-8") as f:
             cfg = yaml.safe_load(f)
         _ppo_tickers = cfg.get("environment", {}).get("tickers", [])
-        logger.info(f"학습 티커 로딩 완료: {_ppo_tickers}")
+        _ppo_window_size = cfg.get("environment", {}).get("window_size", 30)
+        logger.info(f"학습 티커 로딩 완료: {_ppo_tickers}  window_size={_ppo_window_size}")
     except Exception as exc:
         logger.warning(f"settings.yaml 로딩 실패: {exc}")
 
@@ -522,7 +524,7 @@ async def optimize(req: OptimizeRequest):
                     _infer_start = (pd.Timestamp(req.end_date) - pd.DateOffset(days=90)).strftime("%Y-%m-%d")
                     train_prices = _get_or_fetch_prices(_ppo_tickers, _infer_start, req.end_date)
                     if not train_prices.empty and len(train_prices) >= 30:
-                        train_window = min(20, len(train_prices) // 3)
+                        train_window = min(_ppo_window_size, len(train_prices) // 3)
                         env = PortfolioEnv(
                             prices=train_prices,
                             risk_state=_global_risk_state or RiskState(),
@@ -921,6 +923,10 @@ async def backtest(req: BacktestRequest):
 
         # ── equal_weight ────────────────────────────────────────────────────
         if req.strategy == "equal_weight":
+            ew_cached = _load_json(RESULTS_DIR / "ew_walk_forward_result.json", {})
+            if ew_cached and ew_cached.get("folds"):
+                return _build_wf_response("equal_weight", ew_cached, kospi_ret, sp500_ret)
+
             from ..backtest.mvo import _build_fold_dates
             weights = np.ones(n) / n
             cfg = WalkForwardConfig(train_months=24, test_months=6, step_months=6)
@@ -963,10 +969,15 @@ async def backtest(req: BacktestRequest):
                 },
                 "folds": fold_data,
             }
+            _save_json(RESULTS_DIR / "ew_walk_forward_result.json", cache)
             return _build_wf_response("equal_weight", cache, kospi_ret, sp500_ret)
 
         # ── mvo ─────────────────────────────────────────────────────────────
         if req.strategy == "mvo":
+            mvo_cached = _load_json(RESULTS_DIR / "mvo_walk_forward_result.json", {})
+            if mvo_cached and mvo_cached.get("folds"):
+                return _build_wf_response("mvo", mvo_cached, kospi_ret, sp500_ret)
+
             cfg = WalkForwardConfig(train_months=24, test_months=6, step_months=6, train_timesteps=10_000)
             result = run_mvo_walk_forward(prices, cfg, MVOConfig(), verbose=False)
             cache = _wf_result_to_cache(result)

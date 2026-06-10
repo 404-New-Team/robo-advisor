@@ -22,7 +22,7 @@ from ..agents.ppo_agent import PPOAgent
 from ..envs.portfolio_env import PortfolioEnv, RewardVariant
 from ..envs.risk_state import RiskState
 from .metrics import PerformanceMetrics, compute_metrics
-from stable_baselines3.common.vec_env import SubprocVecEnv, DummyVecEnv
+from stable_baselines3.common.vec_env import DummyVecEnv
 
 
 # ─────────────────────────────────────────────────────────────
@@ -47,6 +47,7 @@ class WalkForwardConfig:
     risk_free_rate: float = 0.02
     trading_days_per_year: int = 252
     n_seeds: int = 1
+    seeds: List[int] = field(default_factory=list)
     n_envs: int = 4
 
 
@@ -233,17 +234,18 @@ class WalkForwardBacktest:
             )
 
         if self.cfg.n_envs > 1:
-            train_env = SubprocVecEnv([make_train_env] * self.cfg.n_envs)
+            train_env = DummyVecEnv([make_train_env] * self.cfg.n_envs)
         else:
             train_env = make_train_env()
 
         # ── 훈련 (n_seeds 앙상블) ──────────────────────────────────
         agents = []
-        for seed in range(self.cfg.n_seeds):
+        seed_list = self.cfg.seeds if self.cfg.seeds else list(range(self.cfg.n_seeds))
+        for seed in seed_list:
             if seed == 0:
                 env_for_seed = train_env
             elif self.cfg.n_envs > 1:
-                env_for_seed = SubprocVecEnv([make_train_env] * self.cfg.n_envs)
+                env_for_seed = DummyVecEnv([make_train_env] * self.cfg.n_envs)
             else:
                 env_for_seed = make_train_env()
 

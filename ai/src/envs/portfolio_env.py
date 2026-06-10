@@ -78,6 +78,15 @@ class PortfolioEnv(gym.Env):
                 f"yfinance 다운로드 실패 또는 캐시 손상일 수 있습니다."
             )
 
+        # step/obs에서 pandas 인덱스 조회를 피하기 위해 numpy 배열로 사전 변환
+        self._features_np = self.features.values.astype(np.float32)  # (T, n_assets*8)
+        # prices 수익률을 valid_dates 기준 정수 인덱스로 미리 계산
+        _prices_aligned = prices.loc[self.valid_dates]
+        _prices_np = _prices_aligned.values.astype(np.float64)
+        # asset_returns[i] = (prices[i+1] - prices[i]) / prices[i]
+        self._asset_returns_np = np.zeros_like(_prices_np)
+        self._asset_returns_np[:-1] = (_prices_np[1:] / _prices_np[:-1]) - 1.0
+
         # 관측 공간: 시장특성(n_assets*8, 기본5+기술지표3) + 리스크태그(n_tags) + 현재비중(n_assets)
         n_obs = self.n_assets * 8 + self.n_tags + self.n_assets
         self.observation_space = spaces.Box(
@@ -109,16 +118,11 @@ class PortfolioEnv(gym.Env):
     def step(self, action: np.ndarray):
         new_weights = self._softmax(action)
 
-        date = self.valid_dates[self._current_step]
-        price_idx = self.prices.index.get_loc(date)
-        next_price_idx = price_idx + 1
-
-        if next_price_idx >= len(self.prices):
+        i = self._current_step
+        if i + 1 >= len(self._asset_returns_np):
             return self._get_obs(), 0.0, True, False, self._get_info()
 
-        asset_returns = (
-            self.prices.iloc[next_price_idx].values / self.prices.iloc[price_idx].values - 1
-        )
+        asset_returns = self._asset_returns_np[i]
 
         turnover = np.sum(np.abs(new_weights - self._current_weights))
         trading_cost = (self.transaction_cost + self.slippage) * turnover
@@ -145,9 +149,8 @@ class PortfolioEnv(gym.Env):
     # ------------------------------------------------------------------
 
     def _get_obs(self) -> np.ndarray:
-        step = min(self._current_step, len(self.valid_dates) - 1)
-        date = self.valid_dates[step]
-        market = self.features.loc[date].values.astype(np.float32)
+        step = min(self._current_step, len(self._features_np) - 1)
+        market = self._features_np[step]
         risk = self.risk_state.to_array()
         return np.concatenate([market, risk, self._current_weights])
 
