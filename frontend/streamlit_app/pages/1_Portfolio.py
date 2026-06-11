@@ -28,14 +28,6 @@ backtest_result = load_api_data(
     token=state["access_token"], start_date=_BT_START, end_date=_BT_END,
 )
 backtest_results_all = [backtest_result]
-for _strategy in ("mvo", "equal_weight"):
-    try:
-        backtest_results_all.append(backtest(
-            state["active_tickers"], _strategy,
-            token=state["access_token"], start_date=_BT_START, end_date=_BT_END,
-        ))
-    except Exception as _e:
-        st.warning(f"{_strategy} 백테스트 실패: {_e}")
 weights = result["weights"]
 weight_df = get_weight_table(weights)
 
@@ -85,6 +77,19 @@ st.dataframe(
 
 st.subheader("Walk-Forward 성과")
 st.caption(f"기간: {_BT_START} ~ {_BT_END}  |  train=24mo / test=6mo / step=6mo")
+strategy_cache_key = f"portfolio_strategy_backtests:{','.join(state['active_tickers'])}:{_BT_START}:{_BT_END}"
+if st.button("전략 비교 실행", use_container_width=True, key="portfolio_strategy_backtest_run"):
+    strategy_results = [backtest_result]
+    for _strategy in ("mvo", "equal_weight"):
+        try:
+            strategy_results.append(backtest(
+                state["active_tickers"], _strategy,
+                token=state["access_token"], start_date=_BT_START, end_date=_BT_END,
+            ))
+        except Exception as _e:
+            st.warning(f"{_strategy} 백테스트 실패: {_e}")
+    st.session_state[strategy_cache_key] = strategy_results
+backtest_results_all = st.session_state.get(strategy_cache_key, backtest_results_all)
 st.plotly_chart(
     performance_chart(walk_forward_performance_frame(backtest_results_all)),
     use_container_width=True,

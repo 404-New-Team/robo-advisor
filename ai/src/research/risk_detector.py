@@ -4,6 +4,8 @@ Claude API를 활용한 뉴스 → 리스크 태그 변환 에이전트.
 tool_use로 구조화된 출력을 강제하여 파싱 실패를 방지한다.
 """
 
+import os
+
 import anthropic
 from ..envs.risk_state import RiskTag, RISK_TAG_NAMES
 from .risk_tags import RISK_DETECTION_TOOL
@@ -22,9 +24,9 @@ level은 뉴스 내용의 심각도, confidence는 뉴스 신뢰도를 반영합
 
 
 class RiskDetector:
-    def __init__(self, model: str = "claude-opus-4-7", max_tokens: int = 1024):
+    def __init__(self, model: str | None = None, max_tokens: int = 1024):
         self.client = anthropic.Anthropic()  # ANTHROPIC_API_KEY 환경변수 자동 사용
-        self.model = model
+        self.model = model or os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001")
         self.max_tokens = max_tokens
 
     def detect(self, news_texts: list, context: list = None) -> list:

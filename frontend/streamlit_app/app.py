@@ -27,24 +27,8 @@ portfolio_context = {
     "weights": optimize_result["weights"],
     "ticker_names": {ticker: get_asset_name(ticker) for ticker in state["active_tickers"]},
 }
-research_result = load_api_data(
-    "리서치",
-    research,
-    tickers=state["active_tickers"],
-    max_results=3,
-    token=state["access_token"],
-    portfolio_context=portfolio_context,
-)
 backtest_result = load_api_data("백테스트", backtest, state["active_tickers"], "drl", token=state["access_token"])
 backtest_results_all = [backtest_result]
-for _strategy in ("mvo", "equal_weight"):
-    try:
-        backtest_results_all.append(backtest(
-            state["active_tickers"], _strategy, token=state["access_token"],
-            start_date="2019-01-01", end_date="2026-07-01",
-        ))
-    except Exception as _e:
-        st.warning(f"{_strategy} 백테스트 실패: {_e}")
 allocation_result = load_api_data(
     "주문 수량 계산",
     allocation,
@@ -94,9 +78,23 @@ with tab_summary:
     render_allocation_table(allocation_result)
 
 with tab_research:
-    st.write(research_result["summary"])
-    for index, step in enumerate(research_result["reasoning_trace"], start=1):
-        st.text(f"{index}. {step}")
+    research_key = f"dashboard_research_result:{','.join(state['active_tickers'])}:{state['risk_level']}"
+    if st.button("리서치 실행", type="primary", use_container_width=True, key="dashboard_research_run"):
+        st.session_state[research_key] = load_api_data(
+            "리서치",
+            research,
+            tickers=state["active_tickers"],
+            max_results=3,
+            token=state["access_token"],
+            portfolio_context=portfolio_context,
+        )
+    research_result = st.session_state.get(research_key)
+    if research_result is None:
+        st.info("리서치 실행 버튼을 눌러 현재 포트폴리오 기준 분석을 시작하세요.")
+    else:
+        st.write(research_result["summary"])
+        for index, step in enumerate(research_result["reasoning_trace"], start=1):
+            st.text(f"{index}. {step}")
 
 with tab_simulation:
     st.info("미래 경로 시뮬레이션 API가 아직 없어 백테스트 Walk-Forward 결과를 표시합니다.")
