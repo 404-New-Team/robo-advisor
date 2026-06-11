@@ -74,7 +74,7 @@ with tab_summary:
     metric_cols[3].metric("수익 난 기간 비율", f"{metrics['win_rate'] * 100:.1f}%")
 
     st.divider()
-    st.subheader("얼마씩 살지 계산")
+    st.subheader("주문 수량 계산")
     render_allocation_table(allocation_result)
 
 with tab_research:

@@ -64,7 +64,7 @@ order_display_df = order_df.copy()
 order_display_df["목표 비중"] = (order_display_df["목표 비중"] * 100).round(1)
 order_display_df["매수 금액"] = order_display_df["매수 금액"].map(format_money)
 
-st.subheader("얼마씩 살지 미리보기")
+st.subheader("주문 미리보기")
 st.dataframe(
     order_display_df,
     use_container_width=True,
