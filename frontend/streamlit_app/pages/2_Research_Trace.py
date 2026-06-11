@@ -11,12 +11,12 @@ from reference_data import get_universe
 from ui import configure_page, load_api_data, render_sidebar
 
 
-configure_page("리서치 추론")
+configure_page("뉴스 분석 과정")
 
 state = render_sidebar()
 universe = get_universe()
 
-st.title("Reasoning Trace")
+st.title("뉴스 분석 과정")
 
 
 def _ticker_label(value: str | None) -> str:
@@ -61,13 +61,13 @@ ticker = cols[0].selectbox(
     [None] + state["active_tickers"],
     format_func=_ticker_label,
 )
-max_results = cols[1].slider("출처 수", min_value=3, max_value=10, value=5)
-submitted = cols[2].button("리서치 실행", type="primary", use_container_width=True)
+max_results = cols[1].slider("참고 자료 수", min_value=3, max_value=10, value=5)
+submitted = cols[2].button("뉴스 분석 실행", type="primary", use_container_width=True)
 
 if submitted:
     research_tickers = state["active_tickers"] if ticker is None else [ticker]
     result = load_api_data(
-        "리서치",
+        "뉴스 분석",
         research,
         tickers=research_tickers,
         max_results=max_results,
@@ -75,7 +75,7 @@ if submitted:
         portfolio_context=_portfolio_context(),
     )
     st.session_state["research_trace_result"] = result
-    st.toast("백엔드 리서치 결과를 갱신했습니다.")
+    st.toast("뉴스 분석 결과를 갱신했습니다.")
 
 def _filter_portfolio_section(summary: str) -> str:
     header = "포트폴리오 구성/비중 기준:"
@@ -92,7 +92,7 @@ def _filter_portfolio_section(summary: str) -> str:
 
 result = st.session_state.get("research_trace_result")
 if result is None:
-    st.info("리서치 실행 버튼을 눌러 현재 포트폴리오 기준 분석을 시작하세요.")
+    st.info("뉴스 분석 실행 버튼을 눌러 현재 투자 구성 기준 분석을 시작하세요.")
     st.stop()
 
 st.subheader("요약")
@@ -100,7 +100,7 @@ st.write(_filter_portfolio_section(result["summary"]).replace("$", r"\$"))
 
 left, right = st.columns([1, 1])
 with left:
-    st.subheader("리스크 이벤트")
+    st.subheader("주의할 만한 뉴스")
     risk_events = result.get("risk_events") or []
     if risk_events:
         risk_df = pd.DataFrame(risk_events)
@@ -119,15 +119,15 @@ with left:
             },
         )
     else:
-        st.info("탐지된 리스크 이벤트가 없습니다.")
+        st.info("탐지된 주의 뉴스가 없습니다.")
 with right:
-    st.subheader("자체 검증")
-    st.metric("Self-Correction", f"{result['self_correction_count']}회")
+    st.subheader("답변 점검")
+    st.metric("검토 후 수정", f"{result['self_correction_count']}회")
     trace_log = "\n".join(f"{index:02d}  {step}" for index, step in enumerate(result["reasoning_trace"], start=1))
-    with st.expander("검증 로그", expanded=False):
-        st.code(trace_log or "검증 로그가 없습니다.", language="text")
+    with st.expander("분석 과정 자세히 보기", expanded=False):
+        st.code(trace_log or "분석 과정 기록이 없습니다.", language="text")
 
-st.subheader("출처")
+st.subheader("참고 자료")
 source_df = pd.DataFrame(result["sources"], columns=["title", "url", "published_at", "relevance_score"])
 source_df["relevance_score"] = source_df["relevance_score"] * 100
 st.dataframe(

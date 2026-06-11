@@ -18,14 +18,14 @@ ASSET_UNIVERSE = [
 
 PROFILE_LABELS = {
     "low": "안정형",
-    "moderate": "위험중립형",
-    "high": "공격투자형",
+    "moderate": "보통형",
+    "high": "적극형",
 }
 
 STRATEGY_LABELS = {
-    "drl": "DRL 로보어드바이저",
-    "mvo": "MVO 평균-분산",
-    "equal_weight": "동일가중",
+    "drl": "AI 추천",
+    "mvo": "수익/위험 균형",
+    "equal_weight": "같은 비율",
 }
 
 

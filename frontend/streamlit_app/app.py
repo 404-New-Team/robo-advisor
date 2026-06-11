@@ -27,7 +27,7 @@ portfolio_context = {
     "weights": optimize_result["weights"],
     "ticker_names": {ticker: get_asset_name(ticker) for ticker in state["active_tickers"]},
 }
-backtest_result = load_api_data("백테스트", backtest, state["active_tickers"], "drl", token=state["access_token"])
+backtest_result = load_api_data("과거 성과", backtest, state["active_tickers"], "drl", token=state["access_token"])
 backtest_results_all = [backtest_result]
 allocation_result = load_api_data(
     "주문 수량 계산",
@@ -48,14 +48,14 @@ with left:
     st.subheader("추천 포트폴리오")
     st.plotly_chart(allocation_chart(weight_df), use_container_width=True, key="dashboard_allocation_chart")
 with right:
-    st.subheader("Walk-Forward 성과")
+    st.subheader("과거 기간별 수익 흐름")
     st.plotly_chart(
         performance_chart(walk_forward_performance_frame(backtest_results_all)),
         use_container_width=True,
         key="dashboard_walk_forward_chart",
     )
 
-tab_summary, tab_research, tab_simulation = st.tabs(["포트폴리오", "리서치 근거", "시뮬레이션"])
+tab_summary, tab_research, tab_simulation = st.tabs(["내 투자 구성", "뉴스 분석 근거", "예상 흐름"])
 
 with tab_summary:
     display_weight_df = weight_df.copy()
@@ -68,20 +68,20 @@ with tab_summary:
     )
     metric_cols = st.columns(4)
     metrics = backtest_result["metrics"]
-    metric_cols[0].metric("백테스트 누적수익률", f"{metrics['total_return'] * 100:.1f}%")
-    metric_cols[1].metric("Sortino", f"{metrics['sortino_ratio']:.2f}")
-    metric_cols[2].metric("Calmar", f"{metrics['calmar_ratio']:.2f}")
-    metric_cols[3].metric("승률", f"{metrics['win_rate'] * 100:.1f}%")
+    metric_cols[0].metric("과거 기준 총 수익", f"{metrics['total_return'] * 100:.1f}%")
+    metric_cols[1].metric("하락 위험 대비 수익", f"{metrics['sortino_ratio']:.2f}")
+    metric_cols[2].metric("하락폭 대비 회복력", f"{metrics['calmar_ratio']:.2f}")
+    metric_cols[3].metric("수익 난 기간 비율", f"{metrics['win_rate'] * 100:.1f}%")
 
     st.divider()
-    st.subheader("주문 수량 계산")
+    st.subheader("얼마씩 살지 계산")
     render_allocation_table(allocation_result)
 
 with tab_research:
     research_key = f"dashboard_research_result:{','.join(state['active_tickers'])}:{state['risk_level']}"
-    if st.button("리서치 실행", type="primary", use_container_width=True, key="dashboard_research_run"):
+    if st.button("뉴스 분석 실행", type="primary", use_container_width=True, key="dashboard_research_run"):
         st.session_state[research_key] = load_api_data(
-            "리서치",
+            "뉴스 분석",
             research,
             tickers=state["active_tickers"],
             max_results=3,
@@ -90,14 +90,14 @@ with tab_research:
         )
     research_result = st.session_state.get(research_key)
     if research_result is None:
-        st.info("리서치 실행 버튼을 눌러 현재 포트폴리오 기준 분석을 시작하세요.")
+        st.info("뉴스 분석 실행 버튼을 눌러 현재 투자 구성 기준 분석을 시작하세요.")
     else:
         st.write(research_result["summary"])
         for index, step in enumerate(research_result["reasoning_trace"], start=1):
             st.text(f"{index}. {step}")
 
 with tab_simulation:
-    st.info("미래 경로 시뮬레이션 API가 아직 없어 백테스트 Walk-Forward 결과를 표시합니다.")
+    st.info("아직 미래 예측 기능은 없어 과거 기간별 수익 흐름을 표시합니다.")
     st.plotly_chart(
         performance_chart(walk_forward_performance_frame(backtest_results_all)),
         use_container_width=True,

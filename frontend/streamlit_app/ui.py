@@ -179,10 +179,10 @@ def format_money(value: int | float) -> str:
 
 def render_metric_row(metrics: dict) -> None:
     cols = st.columns(4)
-    cols[0].metric("예상 수익률", format_percent(metrics["expected_return"]))
-    cols[1].metric("Sharpe", f"{metrics['sharpe_ratio']:.2f}")
-    cols[2].metric("MDD", format_percent(metrics["max_drawdown"]))
-    cols[3].metric("변동성", format_percent(metrics["volatility"]))
+    cols[0].metric("예상 수익", format_percent(metrics["expected_return"]))
+    cols[1].metric("위험 대비 수익", f"{metrics['sharpe_ratio']:.2f}")
+    cols[2].metric("최대 하락폭", format_percent(metrics["max_drawdown"]))
+    cols[3].metric("가격 출렁임", format_percent(metrics["volatility"]))
 
 
 def allocation_chart(weight_df: pd.DataFrame):
@@ -209,7 +209,7 @@ def performance_chart(df: pd.DataFrame):
         color_discrete_sequence=COLOR_SEQUENCE,
     )
     fig.update_layout(
-        yaxis_title="기준가",
+        yaxis_title="처음 100 기준 자산 가치",
         xaxis_title="",
         legend_title_text="",
         margin=dict(l=10, r=10, t=20, b=10),
@@ -259,41 +259,41 @@ def strategy_comparison_from_results(results: list[dict]) -> pd.DataFrame:
         metrics = result.get("metrics", {})
         rows.append(
             {
-                "전략": STRATEGY_LABELS.get(strategy, strategy),
-                "누적수익률": metrics.get("total_return", 0.0),
-                "Sharpe": metrics.get("sharpe_ratio", 0.0),
-                "MDD": metrics.get("max_drawdown", 0.0),
-                "승률": metrics.get("win_rate", 0.0),
+                "투자 방식": STRATEGY_LABELS.get(strategy, strategy),
+                "총 수익": metrics.get("total_return", 0.0),
+                "위험 대비 수익": metrics.get("sharpe_ratio", 0.0),
+                "최대 하락폭": metrics.get("max_drawdown", 0.0),
+                "수익 난 기간 비율": metrics.get("win_rate", 0.0),
             }
         )
     return pd.DataFrame(rows)
 
 
 SHAP_FEATURE_LABELS = {
-    "momentum_7d": "7일 모멘텀",
-    "volatility_30d": "30일 변동성",
-    "news_risk_score": "뉴스 리스크 점수",
-    "rsi": "RSI",
+    "momentum_7d": "최근 7일 상승 흐름",
+    "volatility_30d": "최근 30일 가격 출렁임",
+    "news_risk_score": "뉴스 위험 점수",
+    "rsi": "과열 여부",
     "market_cap_weight": "시가총액 비중",
-    "regulatory_risk": "규제 리스크",
-    "earnings_shock": "실적 충격 리스크",
-    "geopolitical_risk": "지정학 리스크",
-    "market_stress": "시장 변동성 리스크",
-    "liquidity_risk": "유동성 리스크",
+    "regulatory_risk": "규제 위험",
+    "earnings_shock": "실적 충격 위험",
+    "geopolitical_risk": "국제 정세 위험",
+    "market_stress": "시장 불안 위험",
+    "liquidity_risk": "거래 어려움 위험",
 }
 
 SHAP_SUFFIX_LABELS = {
-    "ret1d": "1일 수익률",
-    "ret5d": "5일 수익률",
-    "ret20d": "20일 수익률",
-    "vol20d": "20일 변동성",
-    "mom20d": "20일 모멘텀",
-    "rsi14": "RSI(14일)",
-    "macd_signal": "MACD 신호선",
-    "macd": "MACD",
-    "bb_upper": "볼린저 상단",
-    "bb_lower": "볼린저 하단",
-    "bb_position": "볼린저 위치",
+    "ret1d": "1일 수익",
+    "ret5d": "5일 수익",
+    "ret20d": "20일 수익",
+    "vol20d": "20일 가격 출렁임",
+    "mom20d": "20일 상승 흐름",
+    "rsi14": "14일 과열 여부",
+    "macd_signal": "추세 변화 신호",
+    "macd": "가격 추세",
+    "bb_upper": "평소보다 높은 가격대",
+    "bb_lower": "평소보다 낮은 가격대",
+    "bb_position": "현재 가격 위치",
 }
 
 
@@ -314,8 +314,8 @@ def shap_summary_from_results(results: list[dict]) -> pd.DataFrame:
     for result in results:
         asset = result.get("target_asset", "")
         for feature, value in result.get("shap_values", {}).items():
-            rows.append({"종목": asset, "피처": format_shap_feature(feature), "원본 피처": feature, "기여도": value})
-    return pd.DataFrame(rows, columns=["종목", "피처", "원본 피처", "기여도"])
+            rows.append({"종목": asset, "요인": format_shap_feature(feature), "원본 요인": feature, "영향도": value})
+    return pd.DataFrame(rows, columns=["종목", "요인", "원본 요인", "영향도"])
 
 
 def simulation_chart(df: pd.DataFrame):

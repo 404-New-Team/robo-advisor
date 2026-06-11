@@ -24,7 +24,7 @@ result = load_api_data(
 )
 _BT_START, _BT_END = "2017-01-01", "2025-12-31"
 backtest_result = load_api_data(
-    "백테스트", backtest, state["active_tickers"], "drl",
+    "과거 성과", backtest, state["active_tickers"], "drl",
     token=state["access_token"], start_date=_BT_START, end_date=_BT_END,
 )
 backtest_results_all = [backtest_result]
@@ -38,10 +38,10 @@ render_metric_row(result["metrics"])
 
 left, right = st.columns([1, 1.15])
 with left:
-    st.subheader("추천 비중")
+    st.subheader("추천 투자 비율")
     st.plotly_chart(allocation_chart(weight_df), use_container_width=True, key="portfolio_allocation_chart")
 with right:
-    st.subheader("세부 조정")
+    st.subheader("투자 비율 직접 조정")
     editor_df = weight_df[["티커", "종목", "섹터", "비중"]].copy()
     editor_df["비중"] = (editor_df["비중"] * 100).round(1)
     edited_df = st.data_editor(
@@ -64,7 +64,7 @@ order_display_df = order_df.copy()
 order_display_df["목표 비중"] = (order_display_df["목표 비중"] * 100).round(1)
 order_display_df["매수 금액"] = order_display_df["매수 금액"].map(format_money)
 
-st.subheader("주문 미리보기")
+st.subheader("얼마씩 살지 미리보기")
 st.dataframe(
     order_display_df,
     use_container_width=True,
@@ -75,10 +75,10 @@ st.dataframe(
     },
 )
 
-st.subheader("Walk-Forward 성과")
-st.caption(f"기간: {_BT_START} ~ {_BT_END}  |  train=24mo / test=6mo / step=6mo")
+st.subheader("과거 기간별 수익 흐름")
+st.caption(f"기간: {_BT_START} ~ {_BT_END}")
 strategy_cache_key = f"portfolio_strategy_backtests:{','.join(state['active_tickers'])}:{_BT_START}:{_BT_END}"
-if st.button("전략 비교 실행", use_container_width=True, key="portfolio_strategy_backtest_run"):
+if st.button("다른 방식과 비교하기", use_container_width=True, key="portfolio_strategy_backtest_run"):
     strategy_results = [backtest_result]
     for _strategy in ("mvo", "equal_weight"):
         try:
@@ -87,7 +87,7 @@ if st.button("전략 비교 실행", use_container_width=True, key="portfolio_st
                 token=state["access_token"], start_date=_BT_START, end_date=_BT_END,
             ))
         except Exception as _e:
-            st.warning(f"{_strategy} 백테스트 실패: {_e}")
+            st.warning(f"{_strategy} 과거 성과 계산 실패: {_e}")
     st.session_state[strategy_cache_key] = strategy_results
 backtest_results_all = st.session_state.get(strategy_cache_key, backtest_results_all)
 st.plotly_chart(
@@ -98,13 +98,13 @@ st.plotly_chart(
 
 cmp_df = strategy_comparison_from_results(backtest_results_all)
 if not cmp_df.empty:
-    st.markdown("**전략별 성과 요약**")
+    st.markdown("**투자 방식별 성과 요약**")
     st.dataframe(
         cmp_df.style.format({
-            "누적수익률": "{:.1%}",
-            "Sharpe":    "{:.3f}",
-            "MDD":       "{:.1%}",
-            "승률":      "{:.1%}",
+            "총 수익": "{:.1%}",
+            "위험 대비 수익": "{:.3f}",
+            "최대 하락폭": "{:.1%}",
+            "수익 난 기간 비율": "{:.1%}",
         }),
         use_container_width=True,
         hide_index=True,
@@ -112,11 +112,11 @@ if not cmp_df.empty:
 
 comparison_df = pd.DataFrame(
     [
-        {"항목": "최초 추천", "예상 수익률": result["metrics"]["expected_return"], "MDD": result["metrics"]["max_drawdown"]},
+        {"항목": "최초 추천", "예상 수익": result["metrics"]["expected_return"], "최대 하락폭": result["metrics"]["max_drawdown"]},
         {
-            "항목": "사용자 조정",
-            "예상 수익률": result["metrics"]["expected_return"] - 0.006 + abs(total_weight - 100) * -0.0002,
-            "MDD": result["metrics"]["max_drawdown"] - 0.004,
+            "항목": "직접 조정",
+            "예상 수익": result["metrics"]["expected_return"] - 0.006 + abs(total_weight - 100) * -0.0002,
+            "최대 하락폭": result["metrics"]["max_drawdown"] - 0.004,
         },
     ]
 )
@@ -125,7 +125,7 @@ st.dataframe(
     use_container_width=True,
     hide_index=True,
     column_config={
-        "예상 수익률": st.column_config.NumberColumn("예상 수익률", format="%.3f"),
-        "MDD": st.column_config.NumberColumn("MDD", format="%.3f"),
+        "예상 수익": st.column_config.NumberColumn("예상 수익", format="%.3f"),
+        "최대 하락폭": st.column_config.NumberColumn("최대 하락폭", format="%.3f"),
     },
 )
