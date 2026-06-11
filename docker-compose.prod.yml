@@ -34,7 +34,7 @@ services:
       PYTHONPATH: /app
       MPLBACKEND: Agg
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-opus-4-7}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-haiku-4-5-20251001}
       KRX_ID: ${KRX_ID:-}
       KRX_PW: ${KRX_PW:-}
       KRX_OPENAPI_KEY: ${KRX_OPENAPI_KEY:-}
