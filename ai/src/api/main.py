@@ -362,7 +362,7 @@ def _fetch_benchmark_returns(start: str, end: str) -> tuple[float, float]:
     try:
         import yfinance as yf
         data = yf.download(["^GSPC", "^KS11"], start=start, end=end,
-                           auto_adjust=True, progress=False)
+                           auto_adjust=True, progress=False, threads=False)
         closes = data["Close"] if isinstance(data.columns, pd.MultiIndex) else data
         results = {}
         for sym in ["^GSPC", "^KS11"]:

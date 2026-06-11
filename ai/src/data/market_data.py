@@ -1,3 +1,4 @@
+import logging
 import os
 
 import pandas as pd
@@ -10,6 +11,16 @@ except ImportError:
     pass
 
 CACHE_DIR = Path(__file__).parent.parent / ".cache" / "market"
+YFINANCE_CACHE_DIR = Path(os.getenv("YFINANCE_CACHE_DIR", CACHE_DIR.parent / "yfinance"))
+logger = logging.getLogger(__name__)
+
+try:
+    import yfinance.cache as yf_cache
+
+    YFINANCE_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    yf_cache.set_cache_location(str(YFINANCE_CACHE_DIR))
+except Exception as exc:
+    logger.warning("yfinance cache location setup failed: %s", exc)
 
 
 def _is_krx(ticker: str) -> bool:
@@ -84,7 +95,7 @@ def _fetch_krx(tickers: list, start: str, end: str) -> pd.DataFrame:
             try:
                 import yfinance as yf
                 raw = yf.download(f"{ticker}.KS", start=start, end=end,
-                                  auto_adjust=True, progress=False)
+                                  auto_adjust=True, progress=False, threads=False)
                 if not raw.empty:
                     # yfinance 버전에 따라 MultiIndex 또는 flat columns 반환
                     if isinstance(raw.columns, pd.MultiIndex):
@@ -110,7 +121,7 @@ def _fetch_krx(tickers: list, start: str, end: str) -> pd.DataFrame:
 
 def _fetch_yfinance(tickers: list, start: str, end: str) -> pd.DataFrame:
     """yfinance로 해외 주식/ETF 종가 수집."""
-    raw = yf.download(tickers, start=start, end=end, auto_adjust=True, progress=False)
+    raw = yf.download(tickers, start=start, end=end, auto_adjust=True, progress=False, threads=False)
 
     if raw.empty:
         raise ValueError(f"yfinance: 빈 데이터. 티커={tickers}, 기간={start}~{end}")
@@ -135,7 +146,10 @@ def fetch_prices(tickers: list, start: str, end: str, use_cache: bool = True) ->
     cache_path = CACHE_DIR / cache_key
 
     if use_cache and cache_path.exists():
-        return pd.read_parquet(cache_path)
+        cached = pd.read_parquet(cache_path)
+        if not cached.empty:
+            return cached
+        logger.warning("Ignoring empty market data cache: %s", cache_path)
 
     krx_tickers = [t for t in tickers if _is_krx(t)]
     yf_tickers  = [t for t in tickers if not _is_krx(t)]
@@ -152,8 +166,11 @@ def fetch_prices(tickers: list, start: str, end: str, use_cache: bool = True) ->
         prices = parts[0].join(parts[1], how="inner")
 
     # 데이터 수집에 성공한 티커만 사용 (실패 티커 조용히 제외)
-    available = [t for t in tickers if t in prices.columns]
+    available = [t for t in tickers if t in prices.columns and prices[t].notna().any()]
     prices = prices[available].dropna(how="all").ffill().dropna()
+
+    if prices.empty:
+        raise ValueError(f"가격 데이터가 비어 있습니다. 티커={tickers}, 기간={start}~{end}")
 
     if use_cache:
         CACHE_DIR.mkdir(parents=True, exist_ok=True)
