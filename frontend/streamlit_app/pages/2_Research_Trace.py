@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 import sys
 
 import pandas as pd
@@ -96,7 +97,10 @@ if result is None:
     st.stop()
 
 st.subheader("요약")
-st.write(_filter_portfolio_section(result["summary"]).replace("$", r"\$"))
+def _bold_titles(text: str) -> str:
+    return re.sub(r"^([^:\n]+):", lambda m: f"**{m.group(1)}**:", text, flags=re.MULTILINE)
+
+st.write(_bold_titles(_filter_portfolio_section(result["summary"])).replace("$", r"\$").replace("~", r"\~"))
 
 left, right = st.columns([1, 1])
 with left:

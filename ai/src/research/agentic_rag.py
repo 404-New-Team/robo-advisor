@@ -32,6 +32,13 @@ RISK_KEYWORDS = {
         "antitrust",
         "sec",
         "rate",
+        "규제",
+        "정책",
+        "법률",
+        "소송",
+        "금리",
+        "제재",
+        "조사",
     ],
     "earnings_shock": [
         "earnings",
@@ -42,6 +49,13 @@ RISK_KEYWORDS = {
         "forecast",
         "miss",
         "beat",
+        "실적",
+        "매출",
+        "이익",
+        "손실",
+        "가이던스",
+        "어닝",
+        "하향",
     ],
     "geopolitical_risk": [
         "war",
@@ -51,6 +65,13 @@ RISK_KEYWORDS = {
         "trade",
         "geopolitical",
         "export control",
+        "전쟁",
+        "분쟁",
+        "관세",
+        "무역",
+        "지정학",
+        "수출통제",
+        "제재",
     ],
     "market_stress": [
         "volatility",
@@ -60,6 +81,13 @@ RISK_KEYWORDS = {
         "credit spread",
         "stress",
         "recession",
+        "변동성",
+        "급락",
+        "조정",
+        "폭락",
+        "침체",
+        "경기침체",
+        "신용스프레드",
     ],
     "liquidity_risk": [
         "liquidity",
@@ -68,6 +96,13 @@ RISK_KEYWORDS = {
         "bankruptcy",
         "default",
         "cash flow",
+        "유동성",
+        "자금조달",
+        "부채",
+        "파산",
+        "디폴트",
+        "현금흐름",
+        "뱅크런",
     ],
 }
 
@@ -490,7 +525,7 @@ class AgenticRAGResearchAgent:
     def _build_correction_instruction(self, reasons: list[str]) -> str:
         parts = []
         if "answer_too_short" in reasons:
-            parts.append("답변을 더 상세하게 작성하세요 (최소 3문단).")
+            parts.append("각 리스크별 설명을 더 구체적으로 작성하세요.")
         if "risk_tags_not_reflected" in reasons:
             parts.append("탐지된 리스크 이벤트(규제, 실적, 지정학, 유동성 등)를 답변에 명시하세요.")
         if any("low_quality_score" in r for r in reasons):
@@ -529,16 +564,11 @@ class AgenticRAGResearchAgent:
         ) or "없음"
         portfolio_block = self._format_portfolio_context(portfolio_context or {})
         prompt = (
-            "아래 정보를 바탕으로 수정된 한국어 투자 의견을 작성하세요. "
-            "섹션 제목 없이 의견 내용만 출력하세요.\n"
+            "다음 정보를 바탕으로 한국어 투자 의견을 평문으로 수정하여 작성하세요.\n"
             f"수정 요구사항: {instruction}\n\n"
+            + self._research_answer_format_instructions()
+            + f"탐지된 리스크 태그: {risk_line}\n"
             f"포트폴리오 문맥:\n{portfolio_block or '없음'}\n\n"
-            "작성 기준:\n"
-            "- 현재 포트폴리오 구성과 추천 비중을 판단 기준에 반영\n"
-            "- 탐지된 리스크가 포트폴리오에 미치는 영향을 쉬운 한국어 문장으로 3문장 이상 기술\n"
-            "- 뉴스 제목·출처명·[1] 같은 인용 마커 사용 금지\n"
-            "- 리스크 유형별 의미와 투자자가 취해야 할 행동을 구체적으로 안내\n\n"
-            f"탐지된 리스크 태그: {risk_line}\n\n"
             f"질문: {query}\n\n출처:\n{context}"
         )
         client = anthropic.Anthropic()
@@ -548,7 +578,7 @@ class AgenticRAGResearchAgent:
                 max_tokens=self.config.max_tokens,
                 messages=[{"role": "user", "content": prompt}],
             )
-            return "".join(b.text for b in response.content if getattr(b, "type", "") == "text")
+            raw = "".join(b.text for b in response.content if getattr(b, "type", "") == "text")
         except Exception:
             return self._generate_corrected_extractive(
                 query,
@@ -557,6 +587,16 @@ class AgenticRAGResearchAgent:
                 instruction,
                 portfolio_context=portfolio_context,
             )
+        raw_clean = self._strip_markdown_headers(raw)
+        if not raw_clean or "최종 결론" not in raw_clean:
+            return self._generate_corrected_extractive(
+                query,
+                citations,
+                risk_tags,
+                instruction,
+                portfolio_context=portfolio_context,
+            )
+        return raw_clean
 
     def _generate_corrected_extractive(
         self,
@@ -649,17 +689,10 @@ class AgenticRAGResearchAgent:
         ) or "없음"
         portfolio_block = self._format_portfolio_context(portfolio_context or {})
         prompt = (
-            "아래 정보를 바탕으로 두 항목만 한국어로 작성하세요.\n\n"
-            "출력 형식 (다른 텍스트 없이 아래 두 줄 형식만):\n"
-            "요약: <현재 포트폴리오의 핵심 리스크를 1~2문장으로 요약>\n"
-            "투자 의견: <리스크 영향과 투자자 행동 지침을 3문장 이상으로 기술>\n\n"
-            "작성 기준:\n"
-            "- 현재 포트폴리오 구성과 추천 비중을 판단 기준에 반영\n"
-            "- 탐지된 리스크가 포트폴리오에 미치는 영향을 구체적으로 기술\n"
-            "- 뉴스 제목·출처명·[1] 같은 인용 마커 사용 금지\n"
-            "- 달러 금액 표기 시 '$' 기호 사용 금지, 'USD' 또는 '달러'로 표기\n\n"
+            "다음 정보를 바탕으로 한국어 투자 의견을 평문으로 작성하세요.\n\n"
+            + self._research_answer_format_instructions()
+            + f"탐지된 리스크 태그: {risk_line}\n"
             f"포트폴리오 문맥:\n{portfolio_block or '없음'}\n\n"
-            f"탐지된 리스크 태그: {risk_line}\n"
             f"질문: {query}\n\n출처:\n{context}"
         )
         client = anthropic.Anthropic()
@@ -679,18 +712,8 @@ class AgenticRAGResearchAgent:
                 portfolio_context=portfolio_context,
             )
 
-        # Claude 응답에서 요약/투자 의견 파싱
-        summary_text = ""
-        opinion_text = ""
-        for line in raw.splitlines():
-            line = line.strip()
-            if line.startswith("요약:"):
-                summary_text = line[len("요약:"):].strip()
-            elif line.startswith("투자 의견:"):
-                opinion_text = line[len("투자 의견:"):].strip()
-            elif opinion_text:
-                opinion_text += " " + line
-        if not summary_text or not opinion_text:
+        raw_clean = self._strip_markdown_headers(raw)
+        if not raw_clean or "최종 결론" not in raw_clean:
             logger.warning("_generate_with_claude 응답 파싱 실패, extractive fallback 사용. raw=%r", raw[:200])
             return self._generate_extractive_report(
                 query,
@@ -699,24 +722,7 @@ class AgenticRAGResearchAgent:
                 portfolio_context=portfolio_context,
             )
 
-        # extractive와 동일한 구조로 조립
-        link_lines = self._format_document_portfolio_links(normalized_citations)
-        portfolio_section = (
-            "포트폴리오 구성/비중 기준:\n" + portfolio_block + "\n\n"
-            if portfolio_block
-            else ""
-        )
-        link_section = (
-            "\n\n종목/섹터 리스크 연결:\n" + "\n".join(link_lines) + "\n\n"
-            if link_lines
-            else "\n\n"
-        )
-        return (
-            portfolio_section
-            + f"요약: {summary_text}\n\n"
-            + link_section
-            + f"투자 의견: {opinion_text}"
-        )
+        return raw_clean
 
     _RISK_NAME_KO: dict[str, str] = {
         "regulatory_risk": "규제",
@@ -865,7 +871,6 @@ class AgenticRAGResearchAgent:
             )
 
         summary, opinion_text = self._build_summary_and_opinion(normalized, risk_tags)
-        link_lines = self._format_document_portfolio_links(normalized)
         portfolio_section = (
             "포트폴리오 구성/비중 기준:\n"
             + portfolio_block
@@ -873,17 +878,9 @@ class AgenticRAGResearchAgent:
             if portfolio_block
             else ""
         )
-        link_section = (
-            "\n\n종목/섹터 리스크 연결:\n"
-            + "\n".join(link_lines)
-            + "\n\n"
-            if link_lines
-            else "\n\n"
-        )
         return (
             portfolio_section
             + f"요약: {summary}\n\n"
-            + link_section
             + f"투자 의견: {opinion_text}"
         )
 
@@ -1117,10 +1114,10 @@ class AgenticRAGResearchAgent:
         pairs = self._summarize_citations_in_korean(citations)
         lines = []
         for idx, (summary, evidence) in enumerate(pairs, start=1):
-            parts = [f"근거 {idx}) {summary}"]
+            parts = [f"**근거 {idx})** {summary}"]
             if evidence:
-                parts.append(f"   ▸ {evidence}")
-            lines.append("\n".join(parts))
+                parts.append(f"▸ {evidence}")
+            lines.append("\n\n".join(parts))
         return lines
 
     @staticmethod
@@ -1138,3 +1135,24 @@ class AgenticRAGResearchAgent:
         if len(cleaned) <= max_length:
             return cleaned
         return cleaned[: max_length - 3].rstrip() + "..."
+
+    @staticmethod
+    def _research_answer_format_instructions() -> str:
+        return (
+            "출력 형식 (아래 규칙을 반드시 지키세요):\n"
+            "1. 탐지된 각 리스크마다 다음 형식으로 1~2문장 작성:\n"
+            "   [리스크 이름] 리스크: [어떤 시장 상황이 포착되었는지, 따라서 어떤 리스크라고 판단했는지, 현재 포트폴리오 추천 비중과의 연관성]\n"
+            "2. 마지막에 반드시 다음 형식으로 최종 결론을 1~2문장 작성:\n"
+            "   최종 결론: [위 리스크들로 인해 최종적으로 어떤 포트폴리오 결론이 나왔는지]\n\n"
+            "금지 사항:\n"
+            "- 마크다운 기호(#, ##, **, *, -, `) 사용 금지 — 평문만 허용\n"
+            "- 줄바꿈은 허용\n"
+            "- 뉴스 제목 그대로 인용 금지\n"
+            "- [1], [2] 같은 인용 마커 사용 금지\n"
+            "- $ 기호 사용 금지 (USD 또는 달러로 표기)\n\n"
+        )
+
+    @staticmethod
+    def _strip_markdown_headers(text: str) -> str:
+        lines = [line for line in text.splitlines() if not re.match(r"^#{1,6}\s", line)]
+        return "\n".join(lines).strip()
