@@ -1,0 +1,23 @@
+name: Manual Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "Deploy reason"
+        required: false
+        default: "manual-github-action"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger deploy webhook
+        env:
+          WEBHOOK_SECRET: ${{ secrets.ROBBY_WEBHOOK_SECRET }}
+          REASON: ${{ inputs.reason }}
+        run: |
+          test -n "$WEBHOOK_SECRET"
+          curl -fsS -X POST https://deploy.robby.elhye.com/deploy \
+            -H "Authorization: Bearer $WEBHOOK_SECRET" \
+            -H "X-Deploy-Reason: $REASON"

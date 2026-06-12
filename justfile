@@ -104,6 +104,10 @@ restart:
     just wait-ready
     docker compose -p {{project}} -f {{compose_file}} ps
 
+# Ingest RSS financial news into production ChromaDB
+ingest-news max_per_feed="20":
+    docker compose -p {{project}} -f {{compose_file}} exec -T ai python -m src.research.ingest_news --max-per-feed {{max_per_feed}}
+
 # Follow logs for a service, e.g. just logs ai
 logs service="backend":
     docker compose -p {{project}} -f {{compose_file}} logs -f {{service}}
