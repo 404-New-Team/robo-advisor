@@ -19,9 +19,11 @@ universe = get_universe()
 
 st.title("추천 이유")
 
+target_options = state["active_tickers"] or get_default_tickers()
 target = st.selectbox(
     "확인할 종목",
-    state["active_tickers"] or get_default_tickers(),
+    target_options,
+    index=target_options.index("AAPL") if "AAPL" in target_options else 0,
     format_func=lambda ticker: f"{universe.loc[universe['ticker'] == ticker, 'name'].iloc[0]} ({ticker})",
 )
 result = load_api_data("추천 이유", explain, state["active_tickers"], target, token=state["access_token"])
