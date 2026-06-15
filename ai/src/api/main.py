@@ -697,10 +697,12 @@ async def shap_explain(req: ShapRequest):
         background = np.array(obs_list, dtype=float)
         target_obs = obs_list[-1].astype(float)
 
+        shap_output_idx = target_idx
         if ppo_ok:
+            shap_output_idx = 0
             def predict_fn(batch: np.ndarray) -> np.ndarray:
                 return np.array([
-                    env._softmax(_local_ppo.predict(row, deterministic=True)[0].astype(np.float32))
+                    [float(env._softmax(_local_ppo.predict(row, deterministic=True)[0].astype(np.float32))[target_idx])]
                     for row in batch
                 ])
             action, _ = _local_ppo.predict(target_obs, deterministic=True)
@@ -763,7 +765,7 @@ async def shap_explain(req: ShapRequest):
             elif sv_arr.shape[1] == n_input_features:
                 # (n_samples, n_features, n_outputs) → (n_outputs, n_samples, n_features)
                 sv_arr = np.moveaxis(sv_arr, -1, 0)
-        idx = min(target_idx, sv_arr.shape[0] - 1)
+        idx = min(shap_output_idx, sv_arr.shape[0] - 1)
         sv_target = sv_arr[idx, 0]  # (n_features,)
 
         # base value 추출
