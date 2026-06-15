@@ -1,0 +1,179 @@
+import logging
+import os
+
+import pandas as pd
+import yfinance as yf
+from pathlib import Path
+try:
+    from dotenv import load_dotenv  # type: ignore[import]
+    load_dotenv()
+except ImportError:
+    pass
+
+CACHE_DIR = Path(__file__).parent.parent / ".cache" / "market"
+YFINANCE_CACHE_DIR = Path(os.getenv("YFINANCE_CACHE_DIR", CACHE_DIR.parent / "yfinance"))
+logger = logging.getLogger(__name__)
+
+try:
+    import yfinance.cache as yf_cache
+
+    YFINANCE_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    yf_cache.set_cache_location(str(YFINANCE_CACHE_DIR))
+except Exception as exc:
+    logger.warning("yfinance cache location setup failed: %s", exc)
+
+
+def _is_krx(ticker: str) -> bool:
+    """6자리 숫자면 KRX 종목으로 판별."""
+    return ticker.isdigit() and len(ticker) == 6
+
+
+def _fetch_krx_openapi(tickers: list, start: str, end: str) -> pd.DataFrame:
+    """pykrx-openapi로 KRX 데이터 수집 (KRX_OPENAPI_KEY 환경 변수 필요)."""
+    from pykrx_openapi import KRXOpenAPI
+
+    client = KRXOpenAPI(api_key=os.environ["KRX_OPENAPI_KEY"])
+    start_str = start.replace("-", "")
+    end_str = end.replace("-", "")
+
+    frames = {}
+    for ticker in tickers:
+        rows = []
+        # 날짜 범위를 하루씩 순회하며 수집
+        dates = pd.date_range(start, end, freq="B")  # 영업일
+        for date in dates:
+            bas_dd = date.strftime("%Y%m%d")
+            try:
+                df = client.get_market_ohlcv(bas_dd=bas_dd, ticker=ticker)
+                if df is not None and not df.empty:
+                    close = df["TDD_CLSPRC"].iloc[0] if "TDD_CLSPRC" in df.columns else None
+                    if close is not None:
+                        rows.append({"Date": date, "종가": int(str(close).replace(",", ""))})
+            except Exception:
+                pass
+        if rows:
+            s = pd.DataFrame(rows).set_index("Date")["종가"]
+            frames[ticker] = s
+
+    if not frames:
+        raise ValueError(f"pykrx-openapi: 데이터 없음. 티커={tickers}")
+
+    result = pd.DataFrame(frames)
+    result.index.name = "Date"
+    return result
+
+
+def _fetch_krx(tickers: list, start: str, end: str) -> pd.DataFrame:
+    """pykrx로 국내 ETF/주식 종가 수집. index=Date(datetime), columns=ticker."""
+    try:
+        from pykrx import stock as _pykrx_stock
+    except Exception:
+        _pykrx_stock = None
+
+    start_str = start.replace("-", "")
+    end_str = end.replace("-", "")
+
+    frames = {}
+    for ticker in tickers:
+        df = None
+        # 일반 주식 먼저 시도 (삼성전자·SK하이닉스 등 비ETF 티커는 여기서 바로 성공)
+        if _pykrx_stock is not None:
+            try:
+                df = _pykrx_stock.get_market_ohlcv_by_date(start_str, end_str, ticker)
+            except Exception:
+                pass
+
+            # 데이터가 없으면 ETF 엔드포인트 시도
+            if df is None or df.empty:
+                try:
+                    df = _pykrx_stock.get_etf_ohlcv_by_date(start_str, end_str, ticker)
+                except Exception:
+                    pass
+
+        # pykrx 둘 다 실패 시 yfinance(.KS) 폴백
+        if df is None or df.empty:
+            try:
+                import yfinance as yf
+                raw = yf.download(f"{ticker}.KS", start=start, end=end,
+                                  auto_adjust=True, progress=False, threads=False)
+                if not raw.empty:
+                    # yfinance 버전에 따라 MultiIndex 또는 flat columns 반환
+                    if isinstance(raw.columns, pd.MultiIndex):
+                        close = raw.xs("Close", level=0, axis=1).iloc[:, 0]
+                    else:
+                        close = raw["Close"]
+                    df = close.rename("종가").to_frame()
+            except Exception:
+                pass
+
+        if df is not None and not df.empty:
+            col = "종가" if "종가" in df.columns else df.columns[3]
+            frames[ticker] = df[col]
+
+    if not frames:
+        raise ValueError(f"pykrx/yfinance: 데이터를 가져올 수 없습니다. 티커={tickers}")
+
+    result = pd.DataFrame(frames)
+    result.index = pd.to_datetime(result.index)
+    result.index.name = "Date"
+    return result
+
+
+def _fetch_yfinance(tickers: list, start: str, end: str) -> pd.DataFrame:
+    """yfinance로 해외 주식/ETF 종가 수집."""
+    raw = yf.download(tickers, start=start, end=end, auto_adjust=True, progress=False, threads=False)
+
+    if raw.empty:
+        raise ValueError(f"yfinance: 빈 데이터. 티커={tickers}, 기간={start}~{end}")
+
+    if isinstance(raw.columns, pd.MultiIndex):
+        lvl0 = raw.columns.get_level_values(0).unique().tolist()
+        prices = raw["Close"][tickers] if "Close" in lvl0 else raw.xs("Close", axis=1, level=1)[tickers]
+    else:
+        prices = raw[["Close"]].rename(columns={"Close": tickers[0]})
+
+    return prices
+
+
+def fetch_prices(tickers: list, start: str, end: str, use_cache: bool = True) -> pd.DataFrame:
+    """
+    국내(pykrx) + 해외(yfinance) 혼합 수집.
+    6자리 숫자 티커 → pykrx, 나머지 → yfinance.
+    공통 거래일 교집합(inner join) 후 ffill로 결측치 처리.
+    반환: DataFrame, columns=tickers, index=Date
+    """
+    cache_key = f"{'_'.join(sorted(tickers))}_{start}_{end}.parquet"
+    cache_path = CACHE_DIR / cache_key
+
+    if use_cache and cache_path.exists():
+        cached = pd.read_parquet(cache_path)
+        if not cached.empty:
+            return cached
+        logger.warning("Ignoring empty market data cache: %s", cache_path)
+
+    krx_tickers = [t for t in tickers if _is_krx(t)]
+    yf_tickers  = [t for t in tickers if not _is_krx(t)]
+
+    parts = []
+    if yf_tickers:
+        parts.append(_fetch_yfinance(yf_tickers, start, end))
+    if krx_tickers:
+        parts.append(_fetch_krx(krx_tickers, start, end))
+
+    if len(parts) == 1:
+        prices = parts[0]
+    else:
+        prices = parts[0].join(parts[1], how="inner")
+
+    # 데이터 수집에 성공한 티커만 사용 (실패 티커 조용히 제외)
+    available = [t for t in tickers if t in prices.columns and prices[t].notna().any()]
+    prices = prices[available].dropna(how="all").ffill().dropna()
+
+    if prices.empty:
+        raise ValueError(f"가격 데이터가 비어 있습니다. 티커={tickers}, 기간={start}~{end}")
+
+    if use_cache:
+        CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        prices.to_parquet(cache_path)
+
+    return prices

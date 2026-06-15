@@ -1,0 +1,23 @@
+name: Manual Ingest News
+
+on:
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "Ingest reason"
+        required: false
+        default: "manual-github-action"
+
+jobs:
+  ingest-news:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger news ingest webhook
+        env:
+          WEBHOOK_SECRET: ${{ secrets.ROBBY_WEBHOOK_SECRET }}
+          REASON: ${{ inputs.reason }}
+        run: |
+          test -n "$WEBHOOK_SECRET"
+          curl -fsS -X POST https://deploy.robby.elhye.com/ingest-news \
+            -H "Authorization: Bearer $WEBHOOK_SECRET" \
+            -H "X-Ingest-Reason: $REASON"

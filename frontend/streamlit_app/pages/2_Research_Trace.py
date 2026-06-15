@@ -1,0 +1,145 @@
+from pathlib import Path
+import re
+import sys
+
+import pandas as pd
+import streamlit as st
+
+sys.path.append(str(Path(__file__).resolve().parents[1]))
+
+from api_client import research
+from reference_data import get_universe
+from ui import configure_page, load_api_data, render_sidebar
+
+
+configure_page("뉴스 분석 과정")
+
+state = render_sidebar()
+universe = get_universe()
+
+st.title("뉴스 분석 과정")
+
+
+def _ticker_label(value: str | None) -> str:
+    if value is None:
+        return "전체 포트폴리오"
+    row = universe.loc[universe["ticker"] == value, "name"]
+    name = row.iloc[0] if not row.empty else value
+    return f"{name} ({value})"
+
+
+def _latest_weights(active_tickers: list[str]) -> dict[str, float]:
+    weights = st.session_state.get("latest_portfolio_weights")
+    if not isinstance(weights, dict):
+        return {}
+    active = set(active_tickers)
+    return {
+        str(ticker): float(weight)
+        for ticker, weight in weights.items()
+        if ticker in active and isinstance(weight, int | float)
+    }
+
+
+def _portfolio_context() -> dict:
+    active_tickers = state["active_tickers"]
+    return {
+        "risk_level": state["risk_level"],
+        "investment_amount": state["investment_amount"],
+        "selected_tickers": state["selected_tickers"],
+        "excluded_tickers": state["excluded_tickers"],
+        "active_tickers": active_tickers,
+        "weights": _latest_weights(active_tickers),
+        "ticker_names": {
+            ticker: _ticker_label(ticker).rsplit(" (", 1)[0]
+            for ticker in active_tickers
+        },
+    }
+
+
+cols = st.columns([1, 1, 2])
+ticker = cols[0].selectbox(
+    "대상 종목",
+    [None] + state["active_tickers"],
+    format_func=_ticker_label,
+)
+max_results = cols[1].slider("참고 자료 수", min_value=3, max_value=10, value=5)
+submitted = cols[2].button("뉴스 분석 실행", type="primary", use_container_width=True)
+
+if submitted:
+    research_tickers = state["active_tickers"] if ticker is None else [ticker]
+    result = load_api_data(
+        "뉴스 분석",
+        research,
+        tickers=research_tickers,
+        max_results=max_results,
+        token=state["access_token"],
+        portfolio_context=_portfolio_context(),
+    )
+    st.session_state["research_trace_result"] = result
+    st.toast("뉴스 분석 결과를 갱신했습니다.")
+
+def _filter_portfolio_section(summary: str) -> str:
+    header = "포트폴리오 구성/비중 기준:"
+    if header not in summary:
+        return summary
+    before, rest = summary.split(header, 1)
+    chunks = rest.split("\n\n", 1)
+    portfolio_lines = chunks[0].strip().split("\n")
+    after = "\n\n" + chunks[1] if len(chunks) > 1 else ""
+    weight_lines = [l.removeprefix("추천 비중:").strip() for l in portfolio_lines if l.startswith("추천 비중:")]
+    filtered_block = (header + "\n" + "\n".join(weight_lines)) if weight_lines else ""
+    return before + filtered_block + after
+
+
+result = st.session_state.get("research_trace_result")
+if result is None:
+    st.info("뉴스 분석 실행 버튼을 눌러 현재 투자 구성 기준 분석을 시작하세요.")
+    st.stop()
+
+st.subheader("요약")
+def _bold_titles(text: str) -> str:
+    return re.sub(r"^([^:\n]+):", lambda m: f"**{m.group(1)}**:", text, flags=re.MULTILINE)
+
+st.write(_bold_titles(_filter_portfolio_section(result["summary"])).replace("$", r"\$").replace("~", r"\~"))
+
+left, right = st.columns([1, 1])
+with left:
+    st.subheader("주의할 만한 뉴스")
+    risk_events = result.get("risk_events") or []
+    if risk_events:
+        risk_df = pd.DataFrame(risk_events)
+        for col in ["type", "description", "severity", "level", "detected_at"]:
+            if col not in risk_df.columns:
+                risk_df[col] = None
+        risk_df = risk_df[["type", "description", "severity", "level", "detected_at"]]
+        st.dataframe(
+            risk_df,
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "level": st.column_config.ProgressColumn(
+                    "강도", min_value=0.0, max_value=1.0, format="%.2f"
+                ),
+            },
+        )
+    else:
+        st.info("탐지된 주의 뉴스가 없습니다.")
+with right:
+    st.subheader("답변 점검")
+    st.metric("검토 후 수정", f"{result['self_correction_count']}회")
+    trace_log = "\n".join(f"{index:02d}  {step}" for index, step in enumerate(result["reasoning_trace"], start=1))
+    with st.expander("분석 과정 자세히 보기", expanded=False):
+        st.code(trace_log or "분석 과정 기록이 없습니다.", language="text")
+
+st.subheader("참고 자료")
+source_df = pd.DataFrame(result["sources"], columns=["title", "url", "published_at", "relevance_score"])
+source_df["relevance_score"] = source_df["relevance_score"] * 100
+st.dataframe(
+    source_df,
+    use_container_width=True,
+    hide_index=True,
+    column_config={
+        "url": st.column_config.LinkColumn("URL"),
+        "relevance_score": st.column_config.ProgressColumn("관련도", min_value=0, max_value=100, format="%.0f%%"),
+    },
+)
