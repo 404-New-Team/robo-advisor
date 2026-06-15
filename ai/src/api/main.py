@@ -424,10 +424,15 @@ def _build_wf_response(strategy: str, cached: dict, kospi_ret: float, sp500_ret:
 
 
 def _build_feature_names(tickers: list[str]) -> list[str]:
-    """PortfolioEnv 관측 벡터의 피처명 리스트 생성."""
+    """PortfolioEnv 관측 벡터의 피처명 리스트 생성.
+
+    compute_features()가 반환하는 8개 피처 순서와 정확히 일치해야 한다.
+    (macd_signal / bb_upper / bb_lower 는 중복 제거로 삭제됨)
+    관측 공간: n_assets*8 (시장 피처) + 5 (리스크 태그) + n_assets (현재 비중)
+    """
     suffixes = [
         "ret1d", "ret5d", "ret20d", "vol20d", "mom20d",
-        "rsi14", "macd", "macd_signal", "bb_upper", "bb_lower", "bb_position",
+        "rsi14", "macd", "bb_position",
     ]
     names: list[str] = []
     for s in suffixes:
@@ -654,7 +659,7 @@ async def shap_explain(req: ShapRequest):
             try:
                 candidate_prices = _get_or_fetch_prices(_ppo_tickers, start_dt, end_str)
                 candidate_tickers = list(candidate_prices.columns)
-                expected_obs = len(candidate_tickers) * 11 + 5 + len(candidate_tickers)
+                expected_obs = len(candidate_tickers) * 8 + 5 + len(candidate_tickers)
                 ppo_ok = (
                     not candidate_prices.empty
                     and len(candidate_prices) >= 40

@@ -289,10 +289,7 @@ SHAP_SUFFIX_LABELS = {
     "vol20d": "20일 가격 출렁임",
     "mom20d": "20일 상승 흐름",
     "rsi14": "14일 과열 여부",
-    "macd_signal": "추세 변화 신호",
     "macd": "가격 추세",
-    "bb_upper": "평소보다 높은 가격대",
-    "bb_lower": "평소보다 낮은 가격대",
     "bb_position": "현재 가격 위치",
 }
 
