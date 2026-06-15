@@ -106,7 +106,7 @@ pytest tests/
 
 ## 4. 프로젝트 상세 내용
 
-![System Architecture](docs/architecture.md)
+![System Architecture](images/system_architecture.png)
 
 ### 4-1. 기술 스택
 
@@ -318,7 +318,7 @@ DRL이 MVO, 동일가중보다 통계적으로 유의하게 우월하다고 주�
 **`frontend/streamlit_app/`**
 
 - 대시보드는 모델을 직접 로드하지 않고 FastAPI 서버와 HTTP 통신
-- **5개 페이지 구성** (메인 포함):
+- **5개 페이지 구성** (app 포함):
 
   | 페이지 | 기능 |
   | --- | --- |
@@ -326,6 +326,46 @@ DRL이 MVO, 동일가중보다 통계적으로 유의하게 우월하다고 주�
   | Research Trace (2_Research_Trace.py) | 티커/질문 입력 → LangGraph 추론 과정 → 리서치 리포트 출력 |
   | SHAP Explain (3_SHAP_Explain.py) | 의사결정 설명 시각화 (Force Plot, Summary Plot, Waterfall Plot) |
   | ANOVA Results (4_ANOVA_Results.py) | 통계 검증 요약 테이블 및 분포 시각화 |
+
+**추천 포트폴리오 비중 시각화**
+
+투자 성향 및 전략에 따라 산출된 자산별 포트폴리오 비중을 파이차트로 시각화하고, 예상 수익·위험 대비 수익·최대 하락폭·가격 출렁임 등 핵심 지표를 한눈에 확인할 수 있습니다.
+
+![추천 포트폴리오 비중 시각화](images/app.png)
+
+**실제 주가 반영 종목별 주문 수량 계산**
+
+총 투자 예정금을 입력하면 추천 비중과 실시간 주가를 바탕으로 종목별 정수 매수 수량·목표 금액·실제 투자금·잔여금을 자동 산출합니다.
+
+![주문 수량 계산](images/app2.png)
+
+**전략에 따른 과거 기간별 수익 흐름**
+
+AI 추천(DRL/PPO), 수익/위험 균형(MVO), 같은 비율(동일가중) 세 가지 전략의 누적 수익률을 기간별로 비교하고, 총 수익·위험 대비 수익·최대 하락폭·수익 난 기간 비율 등 성과 지표를 요약합니다.
+
+![과거 수익 흐름](images/portfolio.png)
+
+**포트폴리오 추천의 주된 근거인 뉴스 분석 결과**
+
+LangGraph 기반 에이전틱 RAG가 수집·분석한 뉴스 요약, 탐지된 리스크 태그, 참고 자료 출처를 제공합니다. Self-Correction 루프 검토 횟수와 분석 과정 세부 로그도 확인할 수 있습니다.
+
+![뉴스 분석 결과](images/research_trace.png)
+
+**PPO 모델의 종목별 추천 비중과 경제적 지표 영향**
+
+SHAP KernelExplainer를 통해 각 종목의 추천 비중이 결정된 주된 요인(경제적 지표)과 그 영향 방향·크기를 요인별 영향 차트 및 전체 종목 영향 요인 산점도로 시각화합니다.
+
+![SHAP 의사결정 해석](images/shap_explain.png)
+
+**3종 ANOVA 통계 검증 대시보드**
+
+보상 함수 변형 비교(One-way ANOVA), 전략별 과거 성과 비교(One-way ANOVA), 시장 상황별 투자 방식 비교(Two-way ANOVA) 세 가지 통계 검증 결과를 시각화합니다.
+
+![ANOVA 검증 1 — 보상 함수 변형 비교](images/anova1.png)
+
+![ANOVA 검증 2 — 전략별 과거 성과 비교](images/anova2.png)
+
+![ANOVA 검증 3 — 시장 상황별 투자 방식 비교](images/anova3.png)
 
 #### 4-2-11. API 서버 엔드포인트
 

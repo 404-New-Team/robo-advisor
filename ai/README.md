@@ -45,10 +45,21 @@
 ```text
 ai/
 ├── train.py
+├── train_final_model.sh
+├── compare_lambda.py
+├── run_exp_all_configs.sh
+├── run_exp_lambda.sh
+├── run_exp_window.sh
+├── run_final_eval.sh
+├── run_benchmark_eval.sh
 ├── requirements.txt
 ├── checkpoints/
 │   ├── portfolio_ppo_best.zip
-│   └── best_score.txt
+│   ├── best_score.txt
+│   ├── fold_00/ ~ fold_12/       ← Walk-Forward fold별 체크포인트
+│   │   └── seed_0/ seed_3/ seed_16/ seed_25/ seed_41/ seed_73/
+│   └── production/               ← 서비스용 최종 모델 (5 seeds)
+│       └── config.json
 ├── experiments/
 │   ├── reward_experiment.py
 │   ├── walk_forward_experiment.py
@@ -56,7 +67,29 @@ ai/
 │   ├── shap_experiment.py
 │   ├── strategy_anova_experiment.py
 │   ├── market_regime_anova_experiment.py
+│   ├── compare_experiment.py
+│   ├── compare_exp_lambda.py     ← lambda 하이퍼파라미터 비교
+│   ├── compare_exp_lr.py         ← learning rate 비교
+│   ├── compare_exp_seeds.py      ← seed 다양성 비교
+│   ├── compare_exp_timesteps.py  ← 학습 스텝 수 비교
+│   ├── run_benchmark_eval.py
+│   ├── summarize_results.py
+│   ├── train_final_model.py
 │   └── results/
+├── analytics/
+│   ├── backtest/
+│   ├── benchmarks/
+│   ├── explainability/
+│   └── statistics/
+├── research_agent/
+│   ├── prompts/
+│   ├── retrieval/
+│   └── tools/
+├── rl_engine/
+│   ├── agents/
+│   ├── checkpoints/
+│   ├── envs/
+│   └── safeguard/
 ├── src/
 │   ├── api/            ← FastAPI 서버 (main.py)
 │   ├── agents/
@@ -97,7 +130,7 @@ $env:ANTHROPIC_API_KEY="sk-ant-..."
 
 ## API 서버
 
-FastAPI 서버는 포트 8001에서 실행됩니다. PPO 체크포인트와 Research Agent는 서버 시작 시 자동으로 로딩됩니다.
+FastAPI 서버는 컨테이너 내부 포트 8001에서 실행되며, 호스트에서는 8002로 접근합니다. PPO 체크포인트와 Research Agent는 서버 시작 시 자동으로 로딩됩니다.
 
 ### 로컬 실행
 
@@ -219,17 +252,17 @@ python train.py
 
 ```yaml
 training:
-  total_timesteps: 500000
+  total_timesteps: 225000
   n_envs: 4
-  learning_rate: 0.0003
+  learning_rate: 0.0001
   batch_size: 256
 ```
 
-학습 결과는 항상 `ai/checkpoints/` 아래에 저장됩니다.
+학습 결과는 `ai/checkpoints/` 아래에 저장됩니다.
 
-- `checkpoints/portfolio_ppo_best.zip`
-- `checkpoints/best_score.txt`
-- `checkpoints/learning_curve.png`
+- `checkpoints/portfolio_ppo_best.zip` — 단일 best 체크포인트
+- `checkpoints/fold_XX/seed_YY/` — Walk-Forward fold × seed 별 체크포인트 (fold 0~12, seeds: 3, 41, 25, 73, 16)
+- `checkpoints/production/` — 서비스용 최종 모델 (5 seeds + config.json)
 
 실행 위치에 따라 체크포인트 경로가 달라지는 문제를 막기 위해 `train.py`는 스크립트 위치 기준의 절대 경로로 저장합니다.
 
@@ -243,16 +276,16 @@ python experiments/walk_forward_experiment.py
 
 - `experiments/results/walk_forward_result.json`
 
-현재 결과 요약:
+현재 결과 요약 (학습 24개월 / 테스트 6개월 / 225,000 steps / seed 5개 앙상블):
 
 | 지표 | 값 |
 | --- | ---: |
-| Fold 수 | 10 |
-| 평균 CAGR | 0.1346 |
-| CAGR 표준편차 | 0.2141 |
-| 평균 Sharpe | 1.4244 |
-| Sharpe 표준편차 | 2.1578 |
-| 평균 MDD | 0.0813 |
+| Fold 수 | 13 |
+| 평균 CAGR | 0.3111 |
+| CAGR 표준편차 | 0.3319 |
+| 평균 Sharpe | 2.9314 |
+| Sharpe 표준편차 | 2.537 |
+| 평균 MDD | 0.0554 |
 
 해석: 일부 fold에서는 높은 Sharpe와 CAGR을 보였지만, 2022년 구간처럼 손실 fold도 존재합니다. 따라서 DRL 전략의 성과는 시장 국면에 민감하며, 안정적인 우월성을 주장하기보다는 국면별 강점과 약점을 함께 해석해야 합니다.
 
@@ -351,7 +384,7 @@ tickers:
 ```yaml
 transaction_cost: 0.00015
 slippage: 0.0005
-max_drawdown_threshold: 0.15
+max_drawdown_threshold: 0.25
 ```
 
 리밸런싱 시 turnover에 비례해 수수료와 슬리피지를 차감합니다. 에피소드 중 MDD가 15%를 초과하면 조기 종료합니다.
@@ -499,10 +532,12 @@ pytest ai/tests backend/tests
 | 산출물 | 경로 |
 | --- | --- |
 | PPO best checkpoint | `ai/checkpoints/portfolio_ppo_best.zip` |
-| 학습 곡선 | `ai/checkpoints/learning_curve.png` |
+| Fold × Seed 체크포인트 | `ai/checkpoints/fold_XX/seed_YY/` |
+| 서비스용 최종 모델 | `ai/checkpoints/production/` |
 | Walk-Forward 결과 | `ai/experiments/results/walk_forward_result.json` |
+| 하이퍼파라미터 비교 결과 | `ai/experiments/results/walk_forward_tm24_tt6_ts*.json` |
 | MVO 결과 | `ai/experiments/results/mvo_walk_forward_result.json` |
-| SHAP plot | `ai/experiments/results/shap/` |
+| Equal-Weight 결과 | `ai/experiments/results/ew_walk_forward_result.json` |
 | 보상 함수 ANOVA | `ai/experiments/results/anova_result.json` |
 | 전략 ANOVA | `ai/experiments/results/strategy_anova_result.json` |
 | 시장 국면 ANOVA | `ai/experiments/results/market_regime_anova_result.json` |
@@ -510,7 +545,7 @@ pytest ai/tests backend/tests
 ## 한계와 개선 방향
 
 - DRL 전략은 평균적으로 MVO와 동일가중을 유의하게 초과하지 못했습니다.
-- Walk-Forward fold 수가 10개라 통계 검정력이 여전히 제한됩니다.
+- Walk-Forward fold 수가 13개라 통계 검정력이 여전히 제한됩니다.
 - 시장 국면 분류에서 Bear 표본이 1개로 불균형합니다.
 - 보상 함수별 episode reward는 스케일이 달라 직접적인 우열 비교에 주의가 필요합니다.
 - 향후 개선은 seed 반복 학습, 더 긴 기간의 데이터, 국면별 균형 표본 확보, lambda 탐색, 리밸런싱 주기별 민감도 분석 순서로 진행하는 것이 좋습니다.
