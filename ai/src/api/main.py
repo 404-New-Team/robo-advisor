@@ -637,12 +637,51 @@ async def shap_explain(req: ShapRequest):
         if prices.empty or len(prices) < 40:
             raise ValueError("SHAP 계산을 위한 데이터가 부족합니다 (최소 40 거래일).")
 
-        tickers = list(prices.columns)
+        request_tickers = list(prices.columns)
+        request_set = set(request_tickers)
+        train_set = set(_ppo_tickers)
+
+        # PPO는 학습 당시 관측 차원에서만 동작한다. 요청 티커가 학습 유니버스의
+        # 부분집합이면 학습 티커 전체 환경으로 SHAP을 계산하고 대상 output만 해석한다.
+        ppo_prices = None
+        ppo_ok = False
+        if (
+            _local_ppo is not None
+            and _ppo_tickers
+            and req.target_asset in train_set
+            and request_set.issubset(train_set)
+        ):
+            try:
+                candidate_prices = _get_or_fetch_prices(_ppo_tickers, start_dt, end_str)
+                candidate_tickers = list(candidate_prices.columns)
+                expected_obs = len(candidate_tickers) * 11 + 5 + len(candidate_tickers)
+                ppo_ok = (
+                    not candidate_prices.empty
+                    and len(candidate_prices) >= 40
+                    and req.target_asset in candidate_tickers
+                    and _local_ppo.observation_space.shape[0] == expected_obs
+                )
+                if ppo_ok:
+                    ppo_prices = candidate_prices
+                logger.info(
+                    "[SHAP] request_n=%s, train_n=%s, expected_obs=%s, model_obs=%s, ppo_ok=%s",
+                    len(request_tickers),
+                    len(candidate_tickers),
+                    expected_obs,
+                    _local_ppo.observation_space.shape[0],
+                    ppo_ok,
+                )
+            except Exception as exc:
+                logger.warning(f"[SHAP] PPO 학습 유니버스 구성 실패 → MVO 폴백: {exc}")
+                ppo_ok = False
+
+        shap_prices = ppo_prices if ppo_ok and ppo_prices is not None else prices
+        tickers = list(shap_prices.columns)
         n = len(tickers)
         target_idx = tickers.index(req.target_asset)
-        window = min(20, len(prices) // 3)
+        window = min(20, len(shap_prices) // 3)
 
-        env = PortfolioEnv(prices=prices, risk_state=_global_risk_state or RiskState(), window_size=window)
+        env = PortfolioEnv(prices=shap_prices, risk_state=_global_risk_state or RiskState(), window_size=window)
 
         # ── 배경 관측값 수집 (최대 20개) ─────────────────────────────────────
         obs_list: list[np.ndarray] = []
@@ -658,14 +697,6 @@ async def shap_explain(req: ShapRequest):
         background = np.array(obs_list, dtype=float)
         target_obs = obs_list[-1].astype(float)
 
-        # ── predict_fn 정의 (PPO 관측 공간 호환성 확인) ──────────────────────
-        expected_obs = n * 11 + 5 + n
-        ppo_ok = (
-            _local_ppo is not None
-            and _local_ppo.observation_space.shape[0] == expected_obs
-        )
-        logger.info(f"[SHAP] n={n}, expected_obs={expected_obs}, ppo_ok={ppo_ok}")
-
         if ppo_ok:
             def predict_fn(batch: np.ndarray) -> np.ndarray:
                 return np.array([_local_ppo.predict(row, deterministic=True)[0] for row in batch])
@@ -676,22 +707,22 @@ async def shap_explain(req: ShapRequest):
             from sklearn.linear_model import Ridge
 
             _mvo = MVO(MVOConfig())
-            _mvo.fit(prices)
+            _mvo.fit(shap_prices)
             _w = _mvo.get_weights()
             final_weight = float(_w[target_idx])
 
             # 롤링 윈도우마다 MVO 재최적화 → (obs, weight) 쌍 수집
-            step_size = max(1, len(prices) // 40)
-            win = max(30, len(prices) // 4)
+            step_size = max(1, len(shap_prices) // 40)
+            win = max(30, len(shap_prices) // 4)
             scenario_obs, scenario_weights = [], []
-            env2 = PortfolioEnv(prices=prices, risk_state=_global_risk_state or RiskState(), window_size=window)
+            env2 = PortfolioEnv(prices=shap_prices, risk_state=_global_risk_state or RiskState(), window_size=window)
             obs2, _ = env2.reset()
             for step_i in range(min(len(obs_list), len(env2.valid_dates))):
-                end_i = min(len(prices), win + step_i * step_size)
+                end_i = min(len(shap_prices), win + step_i * step_size)
                 start_i = max(0, end_i - win)
                 try:
                     _mvo_tmp = MVO(MVOConfig())
-                    _mvo_tmp.fit(prices.iloc[start_i:end_i])
+                    _mvo_tmp.fit(shap_prices.iloc[start_i:end_i])
                     scenario_obs.append(obs_list[min(step_i, len(obs_list) - 1)])
                     scenario_weights.append(_mvo_tmp.get_weights())
                 except Exception:
