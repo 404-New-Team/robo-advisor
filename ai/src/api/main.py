@@ -699,7 +699,10 @@ async def shap_explain(req: ShapRequest):
 
         if ppo_ok:
             def predict_fn(batch: np.ndarray) -> np.ndarray:
-                return np.array([_local_ppo.predict(row, deterministic=True)[0] for row in batch])
+                return np.array([
+                    env._softmax(_local_ppo.predict(row, deterministic=True)[0].astype(np.float32))
+                    for row in batch
+                ])
             action, _ = _local_ppo.predict(target_obs, deterministic=True)
             final_weight = float(env._softmax(action.astype(np.float32))[target_idx])
         else:
